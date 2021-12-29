@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-Controller::Controller() : matrix(LED_COUNT, 0)
+Controller::Controller() : matrix_(LED_COUNT, 0)
 {
     memset(&ledstring, 0, sizeof (ledstring));
     ledstring.freq = TARGET_FREQ;
@@ -20,7 +20,7 @@ int Controller::exec()
 {
     ws2811_return_t ret = WS2811_SUCCESS;
 
-    sig.async_wait([this](const asio::error_code& error, int signal_number) {
+    sig_.async_wait([this](const asio::error_code& error, int signal_number) {
         OnSignal(error, signal_number);
     });
 
@@ -36,7 +36,11 @@ int Controller::exec()
 
     Blue();
 
-    io.run();
+    timer_.async_wait([this](const asio::error_code& error){
+        OnTimeout(error);
+    });
+
+    io_.run();
 
     Clear();
 
@@ -44,16 +48,42 @@ int Controller::exec()
     return ret;
 }
 
+void Controller::OnTimeout(const asio::error_code& error)
+{
+    if(error)
+    {
+        std::cerr << std::endl << fmt::format("Cyclic loop failed: {}", error.message()) << std::endl;
+        Clear();
+        return;
+    }
+
+    static int count = 0;
+    if(count & 1)
+    {
+        Blue();
+    }
+    else
+    {
+        Clear();
+    }
+    count++;
+
+    timer_.expires_at( timer_.expiry() + UPDATE_PERIOD);
+    timer_.async_wait([this](const asio::error_code& error){
+        OnTimeout(error);
+    });
+}
+
 void Controller::OnSignal(const asio::error_code& error, int signal_number)
 {
     if (!error)
     {
         std::cout << std::endl << fmt::format("Controller stopped with signal {}", signal_number) << std::endl;
-        io.stop();
+        io_.stop();
     }
     else
     {
-        sig.async_wait([this](const asio::error_code& error, int signal_number) {
+        sig_.async_wait([this](const asio::error_code& error, int signal_number) {
             OnSignal(error, signal_number);
         });
     }
@@ -61,7 +91,7 @@ void Controller::OnSignal(const asio::error_code& error, int signal_number)
 
 void Controller::Render()
 {
-    memcpy(ledstring.channel[0].leds, matrix.data(), matrix.size() * sizeof(ws2811_led_t));
+    memcpy(ledstring.channel[0].leds, matrix_.data(), matrix_.size() * sizeof(ws2811_led_t));
 
     ws2811_return_t ret = WS2811_SUCCESS;
     if ((ret = ws2811_render(&ledstring)) != WS2811_SUCCESS)
@@ -72,12 +102,12 @@ void Controller::Render()
 
 void Controller::Blue()
 {
-    std::fill(matrix.begin(), matrix.end(), 0x00000020);
+    std::fill(matrix_.begin(), matrix_.end(), 0x10000020);
     Render();
 }
 
 void Controller::Clear()
 {
-    std::fill(matrix.begin(), matrix.end(), 0);
+    std::fill(matrix_.begin(), matrix_.end(), 0);
     Render();
 }
