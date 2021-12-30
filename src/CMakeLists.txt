@@ -2,16 +2,17 @@ find_package(ASIO REQUIRED)
 find_package(WS2811 REQUIRED)
 find_package(FMT REQUIRED)
 
-
 STRING(TOLOWER ${PROJECT_NAME} APPLICATION_NAME)
 
 set(SRC
     main.cpp
+    log.cpp
     controller.cpp
 )
 
 set(HDR
     controller.hpp
+    log.hpp
 )
 
 set(PROJECT_SOURCES

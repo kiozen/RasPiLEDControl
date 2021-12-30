@@ -1,10 +1,13 @@
 #include "controller.hpp"
 
 #include <fmt/format.h>
+#include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <fstream>
 #include <iostream>
 
-Controller::Controller() : matrix_(LED_COUNT, 0)
+Controller::Controller() : Log("ctrl")
 {
     memset(&ledstring, 0, sizeof (ledstring));
     ledstring.freq = TARGET_FREQ;
@@ -26,18 +29,20 @@ int Controller::exec()
 
     if ((ret = ws2811_init(&ledstring)) != WS2811_SUCCESS)
     {
-        std::cerr << fmt::format("ws2811_init failed: {} ({})", ws2811_get_return_t_str(ret), ret) << std::endl;
+        E(fmt::format("ws2811_init failed: {} ({})", ws2811_get_return_t_str(ret), ret));
         if(ret == WS2811_ERROR_MMAP)
         {
-            std::cerr << "Try to run the app as root." << std::endl;
+            E("Try to run the app as root.");
         }
         return ret;
     }
 
-    Blue();
+    LoadAnimation("example.json");
+
+    D("***");
 
     timer_.async_wait([this](const asio::error_code& error){
-        OnTimeout(error);
+        OnAnimate(error);
     });
 
     io_.run();
@@ -48,29 +53,33 @@ int Controller::exec()
     return ret;
 }
 
-void Controller::OnTimeout(const asio::error_code& error)
+void Controller::LoadAnimation(const std::string& filename)
+{
+    I(fmt::format("Load animation {}", filename));
+    std::ifstream ifs(filename);
+    const auto& json_ = nlohmann::json::parse(ifs);
+    animation_ = json_["data"].get<animation_t>();
+    index_ = 0;
+}
+
+void Controller::OnAnimate(const asio::error_code& error)
 {
     if(error)
     {
-        std::cerr << std::endl << fmt::format("Cyclic loop failed: {}", error.message()) << std::endl;
+        E(fmt::format("Cyclic loop failed: {}", error.message()));
         Clear();
         return;
     }
 
-    static int count = 0;
-    if(count & 1)
+    if (index_ == animation_.size())
     {
-        Blue();
+        index_ = 0;
     }
-    else
-    {
-        Clear();
-    }
-    count++;
-
-    timer_.expires_at( timer_.expiry() + UPDATE_PERIOD);
+    const auto& [time, matrix] = animation_[index_++];
+    Render(matrix);
+    timer_.expires_at( timer_.expiry() + std::chrono::milliseconds(time));
     timer_.async_wait([this](const asio::error_code& error){
-        OnTimeout(error);
+        OnAnimate(error);
     });
 }
 
@@ -78,7 +87,8 @@ void Controller::OnSignal(const asio::error_code& error, int signal_number)
 {
     if (!error)
     {
-        std::cout << std::endl << fmt::format("Controller stopped with signal {}", signal_number) << std::endl;
+        std::cout << std::endl;
+        I(fmt::format("Controller stopped with signal {}", signal_number));
         io_.stop();
     }
     else
@@ -89,25 +99,26 @@ void Controller::OnSignal(const asio::error_code& error, int signal_number)
     }
 }
 
-void Controller::Render()
+void Controller::Render(const std::vector<ws2811_led_t>& matrix)
 {
-    memcpy(ledstring.channel[0].leds, matrix_.data(), matrix_.size() * sizeof(ws2811_led_t));
+    std::size_t size = std::min(matrix.size(), static_cast<std::size_t>(ledstring.channel[0].count));
+    memcpy(ledstring.channel[0].leds, matrix.data(), size * sizeof(ws2811_led_t));
 
     ws2811_return_t ret = WS2811_SUCCESS;
     if ((ret = ws2811_render(&ledstring)) != WS2811_SUCCESS)
     {
-        std::cerr << fmt::format("ws2811_render failed: {} ({})", ws2811_get_return_t_str(ret), ret) << std::endl;
+        E(fmt::format("ws2811_render failed: {} ({})", ws2811_get_return_t_str(ret), ret));
     }
 }
 
 void Controller::Blue()
 {
-    std::fill(matrix_.begin(), matrix_.end(), 0x10000020);
-    Render();
+    std::vector<ws2811_led_t> matrix(LED_COUNT, 0x10000020);
+    Render(matrix);
 }
 
 void Controller::Clear()
 {
-    std::fill(matrix_.begin(), matrix_.end(), 0);
-    Render();
+    std::vector<ws2811_led_t> matrix(LED_COUNT, 0x00000000);
+    Render(matrix);
 }
