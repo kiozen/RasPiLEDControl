@@ -3,6 +3,7 @@
 
 #include <array>
 #include <asio.hpp>
+#include <memory>
 #include <tuple>
 #include <vector>
 #include <ws2811/ws2811.h>
@@ -13,10 +14,11 @@ class Controller : public Log
 {
 public:
     Controller();
-    virtual ~Controller() = default;
+    virtual ~Controller();
 
     int exec();
 
+    bool StartServer();
 private:
     static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
     static constexpr int GPIO_PIN = 18;
@@ -40,10 +42,14 @@ private:
     asio::io_context io_;
     asio::signal_set sig_ = {io_, SIGINT, SIGTERM};
     asio::steady_timer timer_ {io_, UPDATE_PERIOD};
-    asio::ip::udp::socket socket_ {io_};
 
+    asio::ip::udp::socket udp_socket_ {io_};
     asio::ip::udp::endpoint remote_endpoint_;
     std::array<int8_t, 1024> recv_buffer_;
+
+    asio::ip::tcp::endpoint endpoint_ {asio::ip::tcp::v4(), 7756};
+    asio::ip::tcp::acceptor acceptor_ {io_, endpoint_};
+    std::unique_ptr<class Session> session_;
 
     using animation_step_t = std::tuple<int, std::vector<ws2811_led_t> >;
     using animation_t = std::vector<animation_step_t >;

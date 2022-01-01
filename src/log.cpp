@@ -8,6 +8,10 @@ Log::Log(const std::string& tag) : tag_(tag)
 {
 }
 
+Log::~Log()
+{
+}
+
 void Log::E(const std::string& msg)
 {
     print("[E]", msg);
@@ -25,5 +29,5 @@ void Log::D(const std::string& msg)
 
 void Log::print(const std::string& level, const std::string& msg)
 {
-    std::cout << fmt::format("{:%y-%m-%d %H:%M:%S} {}: ", std::chrono::system_clock::now(), level) << msg << std::endl;
+    std::cout << fmt::format("{:%y-%m-%d %H:%M:%S} {} {}: ", std::chrono::system_clock::now(), level, tag_) << msg << std::endl;
 }

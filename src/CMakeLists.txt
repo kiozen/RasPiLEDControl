@@ -8,11 +8,13 @@ set(SRC
     main.cpp
     log.cpp
     controller.cpp
+    session.cpp
 )
 
 set(HDR
-    controller.hpp
     log.hpp
+    controller.hpp
+    session.hpp
 )
 
 set(PROJECT_SOURCES

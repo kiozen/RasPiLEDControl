@@ -7,6 +7,7 @@ class Log
 {
 protected:
     Log(const std::string& tag);
+    virtual ~Log();
 
     void E(const std::string& msg);
     void I(const std::string& msg);

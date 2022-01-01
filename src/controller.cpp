@@ -7,6 +7,8 @@
 #include <fstream>
 #include <iostream>
 
+#include "session.hpp"
+
 Controller::Controller() : Log("ctrl")
 {
     memset(&ledstring, 0, sizeof (ledstring));
@@ -19,6 +21,10 @@ Controller::Controller() : Log("ctrl")
     ledstring.channel[0].strip_type = STRIP_TYPE;
 }
 
+Controller::~Controller()
+{
+}
+
 int Controller::exec()
 {
     ws2811_return_t ret = WS2811_SUCCESS;
@@ -28,6 +34,11 @@ int Controller::exec()
     });
 
     if(!SetupUdp())
+    {
+        return -1;
+    }
+
+    if(!StartServer())
     {
         return -1;
     }
@@ -60,15 +71,15 @@ int Controller::exec()
 
 bool Controller::SetupUdp()
 {
-    socket_.open(asio::ip::udp::v4());
+    udp_socket_.open(asio::ip::udp::v4());
     asio::socket_base::broadcast option(true);
-    socket_.set_option(option);
-    socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v4::any(), PORT ));
+    udp_socket_.set_option(option);
+    udp_socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v4::any(), PORT ));
 
 
     struct ifreq s;
     strcpy(s.ifr_name, "wlan0");
-    if (0 == ioctl(socket_.native_handle(), SIOCGIFHWADDR, &s))
+    if (0 == ioctl(udp_socket_.native_handle(), SIOCGIFHWADDR, &s))
     {
         const char* mac = s.ifr_addr.sa_data;
         mac_ = fmt::format("{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -79,12 +90,29 @@ bool Controller::SetupUdp()
         E(fmt::format("Failed to read MAC address from wlan0: {}", strerror(errno)));
     }
 
-    socket_.async_receive_from(asio::buffer(recv_buffer_),
-                               remote_endpoint_,
-                               [this](const asio::error_code& error, std::size_t size){
+    udp_socket_.async_receive_from(asio::buffer(recv_buffer_),
+                                   remote_endpoint_,
+                                   [this](const asio::error_code& error, std::size_t size){
         OnReceiveUdp(error, size);
     });
 
+    return true;
+}
+
+bool Controller::StartServer()
+{
+    session_ = std::unique_ptr<Session>(new Session(io_, *this));
+    acceptor_.async_accept(session_->Socket(), [this](const asio::error_code& error){
+        if(!error)
+        {
+            D("New connection");
+            session_->Exec();
+        }
+        else
+        {
+            E("Failed");
+        }
+    });
     return true;
 }
 
@@ -149,7 +177,7 @@ void Controller::OnReceiveUdp(const asio::error_code& error, std::size_t size)
                 resp["name"] = name_;
                 resp["mac"] = mac_;
 
-                std::size_t s = socket_.send_to(asio::buffer(resp.dump()), remote_endpoint_);
+                std::size_t s = udp_socket_.send_to(asio::buffer(resp.dump()), remote_endpoint_);
                 D(fmt::format("{} {} {}", s, remote_endpoint_.address().to_string(), remote_endpoint_.port()));
             }
         }
@@ -163,9 +191,9 @@ void Controller::OnReceiveUdp(const asio::error_code& error, std::size_t size)
         E(fmt::format("On receive UDP failed: {}", error.message()));
     }
 
-    socket_.async_receive_from(asio::buffer(recv_buffer_),
-                               remote_endpoint_,
-                               [this](const asio::error_code& error, std::size_t size){
+    udp_socket_.async_receive_from(asio::buffer(recv_buffer_),
+                                   remote_endpoint_,
+                                   [this](const asio::error_code& error, std::size_t size){
         OnReceiveUdp(error, size);
     });
 }
