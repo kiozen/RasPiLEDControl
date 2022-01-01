@@ -27,6 +27,11 @@ int Controller::exec()
         OnSignal(error, signal_number);
     });
 
+    if(!SetupUdp())
+    {
+        return -1;
+    }
+
     if ((ret = ws2811_init(&ledstring)) != WS2811_SUCCESS)
     {
         E(fmt::format("ws2811_init failed: {} ({})", ws2811_get_return_t_str(ret), ret));
@@ -51,6 +56,36 @@ int Controller::exec()
 
     ws2811_fini(&ledstring);
     return ret;
+}
+
+bool Controller::SetupUdp()
+{
+    socket_.open(asio::ip::udp::v4());
+    asio::socket_base::broadcast option(true);
+    socket_.set_option(option);
+    socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v4::any(), PORT ));
+
+
+    struct ifreq s;
+    strcpy(s.ifr_name, "wlan0");
+    if (0 == ioctl(socket_.native_handle(), SIOCGIFHWADDR, &s))
+    {
+        const char* mac = s.ifr_addr.sa_data;
+        mac_ = fmt::format("{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        D(fmt::format("MAC address is {}", mac_));
+    }
+    else
+    {
+        E(fmt::format("Failed to read MAC address from wlan0: {}", strerror(errno)));
+    }
+
+    socket_.async_receive_from(asio::buffer(recv_buffer_),
+                               remote_endpoint_,
+                               [this](const asio::error_code& error, std::size_t size){
+        OnReceiveUdp(error, size);
+    });
+
+    return true;
 }
 
 void Controller::LoadAnimation(const std::string& filename)
@@ -97,6 +132,42 @@ void Controller::OnSignal(const asio::error_code& error, int signal_number)
             OnSignal(error, signal_number);
         });
     }
+}
+
+void Controller::OnReceiveUdp(const asio::error_code& error, std::size_t size)
+{
+    if(!error && (size < recv_buffer_.size()))
+    {
+        recv_buffer_[size] = 0;
+        try
+        {
+            const nlohmann::json& msg = nlohmann::json::parse(recv_buffer_);
+            if(msg["cmd"] == "identify")
+            {
+                nlohmann::json resp;
+                resp["rsp"] = "identify";
+                resp["name"] = name_;
+                resp["mac"] = mac_;
+
+                std::size_t s = socket_.send_to(asio::buffer(resp.dump()), remote_endpoint_);
+                D(fmt::format("{} {} {}", s, remote_endpoint_.address().to_string(), remote_endpoint_.port()));
+            }
+        }
+        catch(const std::exception& e)
+        {
+            E(fmt::format("Parsing message failed: {}", e.what()));
+        }
+    }
+    else
+    {
+        E(fmt::format("On receive UDP failed: {}", error.message()));
+    }
+
+    socket_.async_receive_from(asio::buffer(recv_buffer_),
+                               remote_endpoint_,
+                               [this](const asio::error_code& error, std::size_t size){
+        OnReceiveUdp(error, size);
+    });
 }
 
 void Controller::Render(const std::vector<ws2811_led_t>& matrix)
