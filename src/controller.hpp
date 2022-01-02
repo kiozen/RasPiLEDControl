@@ -19,11 +19,17 @@ public:
     int exec();
 
     bool StartServer();
+
+    void SetColor(uint8_t red, uint8_t green, uint8_t blue);
+    std::tuple<uint8_t, uint8_t, uint8_t> GetColor() const;
+
+    std::string getName() const {return name_;}
+
 private:
     static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
     static constexpr int GPIO_PIN = 18;
     static constexpr int DMA = 10;
-    static constexpr int STRIP_TYPE = SK6812_STRIP_RGBW;  // SK6812RGBW (NOT SK6812RGB)
+    static constexpr int STRIP_TYPE = SK6812_STRIP_GRBW;  // SK6812RGBW (NOT SK6812RGB)
     static constexpr int LED_COUNT = 300;
     static constexpr auto UPDATE_PERIOD = std::chrono::milliseconds(5000);
     static constexpr uint16_t PORT = 7755;
@@ -58,6 +64,7 @@ private:
 
     std::string name_;
     std::string mac_;
+    ws2811_led_t last_color_ {0};
 };
 
 #endif // SRC_CONTROLER_HPP

@@ -18,12 +18,11 @@ public:
     void Exec();
 
 private:
-    void OnMessageReceived(const asio::error_code& error, std::size_t size);
+    void OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const asio::error_code& error, std::size_t size);
 
     asio::ip::tcp::socket socket_;
-    asio::streambuf buffer_;
 
-    Controller& parent_;
+    Controller& controller_;
 };
 
 #endif // SRC_SESSION_HPP

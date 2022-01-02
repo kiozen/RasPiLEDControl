@@ -57,9 +57,9 @@ int Controller::exec()
 
     D("***");
 
-    timer_.async_wait([this](const asio::error_code& error){
-        OnAnimate(error);
-    });
+//    timer_.async_wait([this](const asio::error_code& error){
+//        OnAnimate(error);
+//    });
 
     io_.run();
 
@@ -208,6 +208,18 @@ void Controller::Render(const std::vector<ws2811_led_t>& matrix)
     {
         E(fmt::format("ws2811_render failed: {} ({})", ws2811_get_return_t_str(ret), ret));
     }
+}
+
+void Controller::SetColor(uint8_t red, uint8_t green, uint8_t blue)
+{
+    last_color_ = red << 16 | green << 8 | blue;
+    std::vector<ws2811_led_t> matrix(LED_COUNT, last_color_);
+    Render(matrix);
+}
+
+std::tuple<uint8_t, uint8_t, uint8_t> Controller::GetColor() const
+{
+    return {last_color_ >> 16 & 0xff, last_color_ >> 8 & 0x0FF, last_color_ & 0x0FF};
 }
 
 void Controller::Blue()
