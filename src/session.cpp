@@ -1,7 +1,6 @@
 #include "session.hpp"
 
 #include <fmt/format.h>
-#include <nlohmann/json.hpp>
 
 #include "controller.hpp"
 
@@ -63,7 +62,16 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 resp["red"] = red;
                 resp["green"] = green;
                 resp["blue"] = blue;
-                socket_.send(asio::buffer(resp.dump()));
+                resp["power"] = controller_.GetPower();
+                sendJson(resp);
+            }
+            else if(msg["cmd"] == "set_power")
+            {
+                controller_.SetPower(msg["power"].get<bool>());
+                nlohmann::json resp;
+                resp["rsp"] = "set_power";
+                resp["power"] = controller_.GetPower();
+                sendJson(resp);
             }
         }
         catch(const nlohmann::json::parse_error& e)
@@ -76,4 +84,9 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
     }
 
     Exec();
+}
+
+void Session::sendJson(const nlohmann::json& msg)
+{
+    socket_.send(asio::buffer(msg.dump() + "\n"));
 }

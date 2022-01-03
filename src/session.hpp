@@ -2,6 +2,7 @@
 #define SRC_SESSION_HPP
 
 #include <asio.hpp>
+#include <nlohmann/json.hpp>
 
 #include "log.hpp"
 
@@ -19,6 +20,7 @@ public:
 
 private:
     void OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const asio::error_code& error, std::size_t size);
+    void sendJson(const nlohmann::json& msg);
 
     asio::ip::tcp::socket socket_;
 

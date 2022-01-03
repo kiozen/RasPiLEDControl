@@ -9,6 +9,8 @@
 
 #include "session.hpp"
 
+constexpr const char* kConfigFile = "/home/pi/config.json";
+
 Controller::Controller() : Log("ctrl")
 {
     memset(&ledstring, 0, sizeof (ledstring));
@@ -24,6 +26,31 @@ Controller::Controller() : Log("ctrl")
 Controller::~Controller()
 {
 }
+
+void Controller::SaveState()
+{
+    nlohmann::json cfg;
+    cfg["name"] = name_;
+    cfg["power"] = power_;
+    cfg["color"] = last_color_;
+
+    std::ofstream file(kConfigFile);
+    file << cfg;
+}
+
+void Controller::RestoreState()
+{
+    nlohmann::json cfg;
+    std::ifstream file(kConfigFile);
+    file >> cfg;
+
+    name_ = cfg.value("name", "");
+    power_ = cfg.value("power", false);
+    last_color_ = cfg.value("color", 0);
+
+    SetColor(last_color_);
+}
+
 
 int Controller::exec()
 {
@@ -53,7 +80,9 @@ int Controller::exec()
         return ret;
     }
 
-    LoadAnimation("example.json");
+    RestoreState();
+
+//    LoadAnimation("example.json");
 
     D("***");
 
@@ -212,14 +241,38 @@ void Controller::Render(const std::vector<ws2811_led_t>& matrix)
 
 void Controller::SetColor(uint8_t red, uint8_t green, uint8_t blue)
 {
-    last_color_ = red << 16 | green << 8 | blue;
-    std::vector<ws2811_led_t> matrix(LED_COUNT, last_color_);
-    Render(matrix);
+    SetColor(red << 16 | green << 8 | blue);
+}
+
+void Controller::SetColor(uint32_t color)
+{
+    last_color_ = color;
+    if(power_)
+    {
+        std::vector<ws2811_led_t> matrix(LED_COUNT, last_color_);
+        Render(matrix);
+    }
+    SaveState();
 }
 
 std::tuple<uint8_t, uint8_t, uint8_t> Controller::GetColor() const
 {
     return {last_color_ >> 16 & 0xff, last_color_ >> 8 & 0x0FF, last_color_ & 0x0FF};
+}
+
+void Controller::SetPower(bool on)
+{
+    power_ = on;
+    if(on)
+    {
+        std::vector<ws2811_led_t> matrix(LED_COUNT, last_color_);
+        Render(matrix);
+    }
+    else
+    {
+        Clear();
+    }
+    SaveState();
 }
 
 void Controller::Blue()

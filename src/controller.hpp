@@ -25,6 +25,9 @@ public:
 
     std::string getName() const {return name_;}
 
+    void SetPower(bool on);
+    bool GetPower() const {return power_;}
+
 private:
     static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
     static constexpr int GPIO_PIN = 18;
@@ -44,6 +47,10 @@ private:
     void Clear();
     void Blue();
     bool SetupUdp();
+    void SetColor(uint32_t color);
+
+    void SaveState();
+    void RestoreState();
 
     asio::io_context io_;
     asio::signal_set sig_ = {io_, SIGINT, SIGTERM};
@@ -65,6 +72,7 @@ private:
     std::string name_;
     std::string mac_;
     ws2811_led_t last_color_ {0};
+    bool power_ {false};
 };
 
 #endif // SRC_CONTROLER_HPP
