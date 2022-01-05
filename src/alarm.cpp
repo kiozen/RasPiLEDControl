@@ -1,11 +1,11 @@
-#include "alarm_clock.hpp"
+#include "alarm.hpp"
 
 #include <chrono>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 
 
-AlarmClock::AlarmClock(asio::io_context& io, Controller& parent)
+Alarm::Alarm(asio::io_context& io, Controller& parent)
     : Log("alarm")
     , io_(io)
     , controller_(parent)
@@ -13,11 +13,39 @@ AlarmClock::AlarmClock(asio::io_context& io, Controller& parent)
     timer_.async_wait([this](const asio::error_code& error){OnTimeout(error);});
 }
 
-AlarmClock::~AlarmClock()
+Alarm::~Alarm()
 {
 }
 
-void AlarmClock::OnTimeout(const asio::error_code& error)
+void Alarm::RestoreState(const nlohmann::json& cfg)
+{
+    try
+    {
+        alarm_.name = cfg.value("name", "");
+        alarm_.active = cfg.value("active", false);
+        alarm_.hour = cfg.value("hour", -1);
+        alarm_.minute = cfg.value("minute", -1);
+        alarm_.days = cfg.value<std::set<int> >("days", std::set<int>());
+    }
+    catch(const nlohmann::json::exception& e)
+    {
+        E(fmt::format("Parsing config failed: {}", e.what()));
+    }
+}
+
+nlohmann::json Alarm::SaveState() const
+{
+    nlohmann::json alarm;
+    alarm["name"] = alarm_.name;
+    alarm["active"] = alarm_.active;
+    alarm["hour"] = alarm_.hour;
+    alarm["minute"] = alarm_.minute;
+    alarm["days"] = alarm_.days;
+    return alarm;
+}
+
+
+void Alarm::OnTimeout(const asio::error_code& error)
 {
     if(error)
     {

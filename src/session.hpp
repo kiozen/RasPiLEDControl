@@ -23,6 +23,7 @@ private:
     void sendJson(const nlohmann::json& msg);
 
     asio::ip::tcp::socket socket_;
+    asio::steady_timer timer_;
 
     Controller& controller_;
 };

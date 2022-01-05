@@ -1,18 +1,22 @@
-#ifndef SRC_ALARM_CLOCK
-#define SRC_ALARM_CLOCK
+#ifndef SRC_ALARM_HPP
+#define SRC_ALARM_HPP
 
 #include <asio.hpp>
+#include <nlohmann/json.hpp>
 #include <set>
 
 #include "log.hpp"
 
 class Controller;
 
-class AlarmClock : public Log
+class Alarm : public Log
 {
 public:
-    AlarmClock(asio::io_context& io, Controller& parent);
-    virtual ~AlarmClock();
+    Alarm(asio::io_context& io, Controller& parent);
+    virtual ~Alarm();
+
+    void RestoreState(const nlohmann::json& cfg);
+    nlohmann::json SaveState() const;
 
     struct alarm_t
     {
@@ -45,4 +49,4 @@ private:
     alarm_t alarm_;
 };
 
-#endif // SRC_ALARM_CLOCK
+#endif // SRC_ALARM_HPP

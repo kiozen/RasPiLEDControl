@@ -8,7 +8,8 @@
 #include <vector>
 #include <ws2811/ws2811.h>
 
-#include "alarm_clock.hpp"
+#include "alarm.hpp"
+#include "light.hpp"
 #include "log.hpp"
 
 class Controller : public Log
@@ -21,16 +22,17 @@ public:
 
     bool StartServer();
 
-    void SetColor(uint8_t red, uint8_t green, uint8_t blue);
-    std::tuple<uint8_t, uint8_t, uint8_t> GetColor() const;
-
     std::string getName() const {return name_;}
 
     void SetPower(bool on);
     bool GetPower() const {return power_;}
+    void SwitchPower();
 
-    void SetAlarm(const AlarmClock::alarm_t& alarm);
-    AlarmClock::alarm_t GetAlarm() const {return alarm_clock_.GetAlarm();}
+    void SetAlarm(const Alarm::alarm_t& alarm);
+    Alarm::alarm_t GetAlarm() const {return alarm_clock_.GetAlarm();}
+
+    void SetColorRgb(uint8_t red, uint8_t green, uint8_t blue);
+    std::tuple<uint8_t, uint8_t, uint8_t> GetColorRgb() const {return light_.GetColorRgb();}
 
 private:
     static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
@@ -47,11 +49,11 @@ private:
     void OnAnimate(const asio::error_code& error);
     void OnSignal(const asio::error_code& error, int signal_number);
     void OnReceiveUdp(const asio::error_code& error, std::size_t size);
-    void Render(const std::vector<ws2811_led_t>& matrix);
-    void Clear();
-    void Blue();
     bool SetupUdp();
+
     void SetColor(uint32_t color);
+    ws2811_return_t Clear();
+    ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
 
     void SaveState();
     void RestoreState();
@@ -75,10 +77,11 @@ private:
 
     std::string name_;
     std::string mac_;
-    ws2811_led_t last_color_ {0};
+
     bool power_ {false};
 
-    AlarmClock alarm_clock_ {io_, *this};
+    Alarm alarm_clock_ {io_, *this};
+    Light light_ {io_, *this};
 };
 
 #endif // SRC_CONTROLER_HPP

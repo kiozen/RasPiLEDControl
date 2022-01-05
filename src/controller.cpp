@@ -31,21 +31,10 @@ void Controller::SaveState()
 {
     nlohmann::json cfg;
     cfg["name"] = name_;
+    cfg["power"] = power_;
 
-    nlohmann::json light;
-    light["power"] = power_;
-    light["color"] = last_color_;
-    cfg["light"] = light;
-
-    nlohmann::json alarm;
-    const AlarmClock::alarm_t& a = alarm_clock_.GetAlarm();
-    alarm["name"] = a.name;
-    alarm["active"] = a.active;
-    alarm["hour"] = a.hour;
-    alarm["minute"] = a.minute;
-    alarm["days"] = a.days;
-
-    cfg["alarm"] = alarm;
+    cfg["light"] = light_.SaveState();
+    cfg["alarm"] = alarm_clock_.SaveState();
 
     std::ofstream file(kConfigFile);
     file << cfg;
@@ -60,24 +49,14 @@ void Controller::RestoreState()
         file >> cfg;
 
         name_ = cfg.value("name", "");
+        power_ = cfg.value("power", false);
 
-        const nlohmann::json& light = cfg.value("light", nlohmann::json());
-        power_ = light.value("power", false);
-        last_color_ = light.value("color", 0);
-        SetColor(last_color_);
-
-        const nlohmann::json& alarm = cfg.value("alarm", nlohmann::json());
-        AlarmClock::alarm_t a;
-        a.name = alarm.value("name", "");
-        a.active = alarm.value("active", false);
-        a.hour = alarm.value("hour", -1);
-        a.minute = alarm.value("minute", -1);
-        a.days = alarm.value<std::set<int> >("days", std::set<int>());
-        alarm_clock_.SetAlarm(a);
+        light_.RestoreState(cfg.value("light", nlohmann::json()));
+        alarm_clock_.RestoreState(cfg.value("alarm", nlohmann::json()));
     }
-    catch(const nlohmann::json::parse_error& e)
+    catch(const nlohmann::json::exception& e)
     {
-        E(fmt::format("Parsing message failed: {}", e.what()));
+        E(fmt::format("Parsing config failed: {}", e.what()));
     }
 }
 
@@ -111,6 +90,8 @@ int Controller::exec()
     }
 
     RestoreState();
+
+    SwitchPower();
 
     D("*** start asio loop ***");
 
@@ -251,7 +232,7 @@ void Controller::OnReceiveUdp(const asio::error_code& error, std::size_t size)
     });
 }
 
-void Controller::Render(const std::vector<ws2811_led_t>& matrix)
+ws2811_return_t Controller::Render(const std::vector<ws2811_led_t>& matrix)
 {
     std::size_t size = std::min(matrix.size(), static_cast<std::size_t>(ledstring.channel[0].count));
     memcpy(ledstring.channel[0].leds, matrix.data(), size * sizeof(ws2811_led_t));
@@ -261,58 +242,52 @@ void Controller::Render(const std::vector<ws2811_led_t>& matrix)
     {
         E(fmt::format("ws2811_render failed: {} ({})", ws2811_get_return_t_str(ret), ret));
     }
+    return ret;
 }
 
-void Controller::SetColor(uint8_t red, uint8_t green, uint8_t blue)
+void Controller::SetColorRgb(uint8_t red, uint8_t green, uint8_t blue)
 {
     SetColor(red << 16 | green << 8 | blue);
 }
 
 void Controller::SetColor(uint32_t color)
 {
-    last_color_ = color;
-    if(power_)
-    {
-        std::vector<ws2811_led_t> matrix(LED_COUNT, last_color_);
-        Render(matrix);
-    }
+    light_.SetColor(color);
     SaveState();
 }
 
-std::tuple<uint8_t, uint8_t, uint8_t> Controller::GetColor() const
-{
-    return {last_color_ >> 16 & 0xff, last_color_ >> 8 & 0x0FF, last_color_ & 0x0FF};
-}
 
 void Controller::SetPower(bool on)
 {
     power_ = on;
-    if(on)
+    SwitchPower();
+    SaveState();
+}
+
+void Controller::SwitchPower()
+{
+    if(power_)
     {
-        std::vector<ws2811_led_t> matrix(LED_COUNT, last_color_);
-        Render(matrix);
+        std::vector<ws2811_led_t> matrix(LED_COUNT, light_.GetColor());
+        if(Render(matrix) != WS2811_SUCCESS)
+        {
+            power_ = false;
+        }
     }
     else
     {
         Clear();
     }
-    SaveState();
 }
 
-void Controller::SetAlarm(const AlarmClock::alarm_t& alarm)
+void Controller::SetAlarm(const Alarm::alarm_t& alarm)
 {
     alarm_clock_.SetAlarm(alarm);
     SaveState();
 }
 
-void Controller::Blue()
-{
-    std::vector<ws2811_led_t> matrix(LED_COUNT, 0x10000020);
-    Render(matrix);
-}
-
-void Controller::Clear()
+ws2811_return_t Controller::Clear()
 {
     std::vector<ws2811_led_t> matrix(LED_COUNT, 0x00000000);
-    Render(matrix);
+    return Render(matrix);
 }
