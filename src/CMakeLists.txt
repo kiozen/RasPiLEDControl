@@ -9,12 +9,14 @@ set(SRC
     log.cpp
     controller.cpp
     session.cpp
+    alarm_clock.cpp
 )
 
 set(HDR
     log.hpp
     controller.hpp
     session.hpp
+    alarm_clock.hpp
 )
 
 set(PROJECT_SOURCES

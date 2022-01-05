@@ -31,8 +31,21 @@ void Controller::SaveState()
 {
     nlohmann::json cfg;
     cfg["name"] = name_;
-    cfg["power"] = power_;
-    cfg["color"] = last_color_;
+
+    nlohmann::json light;
+    light["power"] = power_;
+    light["color"] = last_color_;
+    cfg["light"] = light;
+
+    nlohmann::json alarm;
+    const AlarmClock::alarm_t& a = alarm_clock_.GetAlarm();
+    alarm["name"] = a.name;
+    alarm["active"] = a.active;
+    alarm["hour"] = a.hour;
+    alarm["minute"] = a.minute;
+    alarm["days"] = a.days;
+
+    cfg["alarm"] = alarm;
 
     std::ofstream file(kConfigFile);
     file << cfg;
@@ -40,15 +53,32 @@ void Controller::SaveState()
 
 void Controller::RestoreState()
 {
-    nlohmann::json cfg;
-    std::ifstream file(kConfigFile);
-    file >> cfg;
+    try
+    {
+        nlohmann::json cfg;
+        std::ifstream file(kConfigFile);
+        file >> cfg;
 
-    name_ = cfg.value("name", "");
-    power_ = cfg.value("power", false);
-    last_color_ = cfg.value("color", 0);
+        name_ = cfg.value("name", "");
 
-    SetColor(last_color_);
+        const nlohmann::json& light = cfg.value("light", nlohmann::json());
+        power_ = light.value("power", false);
+        last_color_ = light.value("color", 0);
+        SetColor(last_color_);
+
+        const nlohmann::json& alarm = cfg.value("alarm", nlohmann::json());
+        AlarmClock::alarm_t a;
+        a.name = alarm.value("name", "");
+        a.active = alarm.value("active", false);
+        a.hour = alarm.value("hour", -1);
+        a.minute = alarm.value("minute", -1);
+        a.days = alarm.value<std::set<int> >("days", std::set<int>());
+        alarm_clock_.SetAlarm(a);
+    }
+    catch(const nlohmann::json::parse_error& e)
+    {
+        E(fmt::format("Parsing message failed: {}", e.what()));
+    }
 }
 
 
@@ -82,13 +112,7 @@ int Controller::exec()
 
     RestoreState();
 
-//    LoadAnimation("example.json");
-
-    D("***");
-
-//    timer_.async_wait([this](const asio::error_code& error){
-//        OnAnimate(error);
-//    });
+    D("*** start asio loop ***");
 
     io_.run();
 
@@ -169,8 +193,8 @@ void Controller::OnAnimate(const asio::error_code& error)
     }
     const auto& [time, matrix] = animation_[index_++];
     Render(matrix);
-    timer_.expires_at( timer_.expiry() + std::chrono::milliseconds(time));
-    timer_.async_wait([this](const asio::error_code& error){
+    timer_animation_.expires_at( timer_animation_.expiry() + std::chrono::milliseconds(time));
+    timer_animation_.async_wait([this](const asio::error_code& error){
         OnAnimate(error);
     });
 }
@@ -272,6 +296,12 @@ void Controller::SetPower(bool on)
     {
         Clear();
     }
+    SaveState();
+}
+
+void Controller::SetAlarm(const AlarmClock::alarm_t& alarm)
+{
+    alarm_clock_.SetAlarm(alarm);
     SaveState();
 }
 

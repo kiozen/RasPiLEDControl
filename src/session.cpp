@@ -47,9 +47,9 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
             const nlohmann::json& msg = nlohmann::json::parse(s);
             if(msg["cmd"] == "set_color")
             {
-                uint8_t red = msg["red"].get<uint8_t>();
-                uint8_t green = msg["green"].get<uint8_t>();
-                uint8_t blue = msg["blue"].get<uint8_t>();
+                uint8_t red = msg["red"];
+                uint8_t green = msg["green"];
+                uint8_t blue = msg["blue"];
 
                 D(fmt::format("Red {} Green {} Blue {}", red, green, blue));
                 controller_.SetColor(red, green, blue);
@@ -67,10 +67,32 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
             }
             else if(msg["cmd"] == "set_power")
             {
-                controller_.SetPower(msg["power"].get<bool>());
+                controller_.SetPower(msg["power"]);
                 nlohmann::json resp;
                 resp["rsp"] = "set_power";
                 resp["power"] = controller_.GetPower();
+                sendJson(resp);
+            }
+            else if(msg["cmd"] == "set_alarm")
+            {
+                AlarmClock::alarm_t alarm;
+                alarm.name = msg["name"];
+                alarm.active = msg["active"];
+                alarm.hour = msg["hour"];
+                alarm.minute = msg["minute"];
+                alarm.days = msg["days"].get<std::set<int> >();
+                controller_.SetAlarm(alarm);
+            }
+            else if(msg["cmd"] == "get_alarm")
+            {
+                const AlarmClock::alarm_t& alarm = controller_.GetAlarm();
+                nlohmann::json resp;
+                resp["rsp"] = "get_alarm";
+                resp["name"] = alarm.name;
+                resp["active"] = alarm.active;
+                resp["hour"] = alarm.hour;
+                resp["minute"] = alarm.minute;
+                resp["days"] = alarm.days;
                 sendJson(resp);
             }
         }
@@ -88,5 +110,6 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
 
 void Session::sendJson(const nlohmann::json& msg)
 {
+    D(fmt::format("send: {}", msg.dump()));
     socket_.send(asio::buffer(msg.dump() + "\n"));
 }

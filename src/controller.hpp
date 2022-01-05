@@ -8,6 +8,7 @@
 #include <vector>
 #include <ws2811/ws2811.h>
 
+#include "alarm_clock.hpp"
 #include "log.hpp"
 
 class Controller : public Log
@@ -27,6 +28,9 @@ public:
 
     void SetPower(bool on);
     bool GetPower() const {return power_;}
+
+    void SetAlarm(const AlarmClock::alarm_t& alarm);
+    AlarmClock::alarm_t GetAlarm() const {return alarm_clock_.GetAlarm();}
 
 private:
     static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
@@ -54,7 +58,6 @@ private:
 
     asio::io_context io_;
     asio::signal_set sig_ = {io_, SIGINT, SIGTERM};
-    asio::steady_timer timer_ {io_, UPDATE_PERIOD};
 
     asio::ip::udp::socket udp_socket_ {io_};
     asio::ip::udp::endpoint remote_endpoint_;
@@ -68,11 +71,14 @@ private:
     using animation_t = std::vector<animation_step_t >;
     int index_ {0};
     animation_t animation_;
+    asio::steady_timer timer_animation_ {io_, UPDATE_PERIOD};
 
     std::string name_;
     std::string mac_;
     ws2811_led_t last_color_ {0};
     bool power_ {false};
+
+    AlarmClock alarm_clock_ {io_, *this};
 };
 
 #endif // SRC_CONTROLER_HPP
