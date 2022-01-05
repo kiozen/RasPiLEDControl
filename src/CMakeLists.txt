@@ -35,4 +35,5 @@ target_link_libraries(${APPLICATION_NAME}
     ASIO::ASIO
     WS2811::WS2811
     fmt::fmt
+    stdc++fs
 )

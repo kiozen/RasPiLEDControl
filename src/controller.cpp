@@ -4,12 +4,14 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
 #include "session.hpp"
 
-constexpr const char* kConfigFile = "/home/pi/config.json";
+constexpr const char* kConfigFile = "config.json";
+constexpr const char* kConfigPath = "/home/pi/.config/led_control/";
 
 Controller::Controller() : Log("ctrl")
 {
@@ -21,6 +23,9 @@ Controller::Controller() : Log("ctrl")
     ledstring.channel[0].invert = 0;
     ledstring.channel[0].brightness = 255;
     ledstring.channel[0].strip_type = STRIP_TYPE;
+
+    const std::filesystem::path path{kConfigPath};
+    std::filesystem::create_directories(path);
 }
 
 Controller::~Controller()
@@ -36,7 +41,10 @@ void Controller::SaveState()
     cfg["light"] = light_.SaveState();
     cfg["alarm"] = alarm_clock_.SaveState();
 
-    std::ofstream file(kConfigFile);
+    std::filesystem::path path {kConfigPath};
+    path /= kConfigFile;
+
+    std::ofstream file(path);
     file << cfg;
 }
 
@@ -44,8 +52,11 @@ void Controller::RestoreState()
 {
     try
     {
+        std::filesystem::path path {kConfigPath};
+        path /= kConfigFile;
+        std::ifstream file(path);
+
         nlohmann::json cfg;
-        std::ifstream file(kConfigFile);
         file >> cfg;
 
         name_ = cfg.value("name", "");
