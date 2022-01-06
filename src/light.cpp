@@ -23,6 +23,7 @@ void Light::RestoreState(const nlohmann::json& cfg)
     {
         color_ = cfg.value("color", 0);
         controller_.SetPowerLight(cfg.value("power", false));
+        I("Restored light");
     }
     catch(const nlohmann::json::exception& e)
     {
@@ -50,5 +51,17 @@ void Light::SetColor(ws2811_led_t color)
 
 bool Light::SwitchOn()
 {
+    if(!GetPower())
+    {
+        I("Power on");
+    }
     return controller_.Render(color_) == WS2811_SUCCESS;
+}
+
+void Light::SwitchOff()
+{
+    if(GetPower())
+    {
+        I("Power off");
+    }
 }

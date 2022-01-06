@@ -25,7 +25,7 @@ public:
 
 protected:
     bool SwitchOn() override;
-    void SwitchOff() override {}
+    void SwitchOff() override;
 
 private:
     asio::io_context& io_;

@@ -32,12 +32,13 @@ void Power::SetPower(bool on)
 
     if(on)
     {
-        active_module_ = module_;
         if(!SwitchOn())
         {
+            SwitchOff();
             controller_.Clear();
             active_module_ = module_e::none;
         }
+        active_module_ = module_;
     }
     else
     {

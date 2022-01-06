@@ -65,6 +65,7 @@ Animation::~Animation()
 
 bool Animation::SwitchOn()
 {
+    I("Power on");
     if(animation_.empty())
     {
         D("animation is empty");
@@ -88,7 +89,11 @@ bool Animation::SwitchOn()
 
 void Animation::SwitchOff()
 {
-    timer_.cancel();
+    if(GetPower())
+    {
+        I("Power off");
+        timer_.cancel();
+    }
 }
 
 
@@ -114,11 +119,12 @@ void Animation::SetAnimation(const std::string& hash)
 {
     if(animations_.count(hash) == 0)
     {
+        hash_.clear();
         animation_.clear();
         index_ = -1;
         return;
     }
-
+    hash_ = hash;
     LoadAnimation(animations_[hash].path.c_str());
 }
 

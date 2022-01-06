@@ -29,6 +29,7 @@ public:
     nlohmann::json GetAnimationInfo() const;
 
     void SetAnimation(const std::string& hash);
+    std::string GetAnimation() const {return hash_;}
 
 protected:
     bool SwitchOn() override;
@@ -43,8 +44,8 @@ private:
     using animation_step_t = std::tuple<int, std::vector<ws2811_led_t> >;
     using animation_t = std::vector<animation_step_t >;
     animation_t animation_;
-
     int index_ {0};
+    std::string hash_;
 
     asio::steady_timer timer_;
     std::map<std::string, info_t> animations_;

@@ -54,7 +54,7 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
 
     while(s.size())
     {
-        D(fmt::format("OnMessageReceived {}", s));
+        D(fmt::format("recv {}", s));
 
         try
         {
@@ -85,6 +85,7 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 alarm.hour = msg["hour"];
                 alarm.minute = msg["minute"];
                 alarm.days = msg["days"].get<std::set<int> >();
+                alarm.animation_hash = msg["animation_hash"];
                 controller_.SetAlarm(alarm);
             }
             else if(msg["cmd"] == "get_alarm")
@@ -97,6 +98,7 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 resp["hour"] = alarm.hour;
                 resp["minute"] = alarm.minute;
                 resp["days"] = alarm.days;
+                resp["animation_hash"] = alarm.animation_hash;
                 sendJson(resp);
             }
             else if(msg["cmd"] == "get_animations")
@@ -109,6 +111,13 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
             else if(msg["cmd"] == "set_animation")
             {
                 controller_.SetAnimation(msg["hash"]);
+            }
+            else if(msg["cmd"] == "get_animation")
+            {
+                nlohmann::json resp;
+                resp["rsp"] = "get_animation";
+                resp["hash"] = controller_.GetAnimation();
+                sendJson(resp);
             }
             else if(msg["cmd"] == "set_power_light")
             {

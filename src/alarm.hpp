@@ -25,6 +25,7 @@ public:
         int32_t hour {-1};
         int32_t minute {-1};
         std::set<int> days;
+        std::string animation_hash;
     };
 
     void SetAlarm(const alarm_t& alarm)

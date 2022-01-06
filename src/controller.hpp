@@ -39,6 +39,7 @@ public:
 
     nlohmann::json GetAnimationInfo() const {return animation_.GetAnimationInfo();}
     void SetAnimation(const std::string& hash);
+    std::string GetAnimation() const {return animation_.GetAnimation();}
 
     ws2811_return_t Clear();
     ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);

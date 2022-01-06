@@ -45,6 +45,7 @@ void Controller::SaveState()
 
     std::ofstream file(path);
     file << cfg;
+    file.flush();
 }
 
 void Controller::RestoreState()
@@ -62,6 +63,7 @@ void Controller::RestoreState()
 
         light_.RestoreState(cfg.value("light", nlohmann::json()));
         alarm_.RestoreState(cfg.value("alarm", nlohmann::json()));
+        I("Restored all configurations");
     }
     catch(const nlohmann::json::exception& e)
     {
@@ -190,7 +192,7 @@ void Controller::OnReceiveUdp(const asio::error_code& error, std::size_t size)
                 resp["mac"] = mac_;
 
                 std::size_t s = udp_socket_.send_to(asio::buffer(resp.dump()), remote_endpoint_);
-                D(fmt::format("{} {} {}", s, remote_endpoint_.address().to_string(), remote_endpoint_.port()));
+                // D(fmt::format("{} {} {}", s, remote_endpoint_.address().to_string(), remote_endpoint_.port()));
             }
         }
         catch(const std::exception& e)

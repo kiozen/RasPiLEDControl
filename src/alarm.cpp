@@ -4,6 +4,8 @@
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 
+#include "controller.hpp"
+
 
 Alarm::Alarm(asio::io_context& io, Controller& parent)
     : Log("alarm")
@@ -26,6 +28,9 @@ void Alarm::RestoreState(const nlohmann::json& cfg)
         alarm_.hour = cfg.value("hour", -1);
         alarm_.minute = cfg.value("minute", -1);
         alarm_.days = cfg.value<std::set<int> >("days", std::set<int>());
+        alarm_.animation_hash = cfg.value("animation_hash", "");
+
+        I("Restored alarm");
     }
     catch(const nlohmann::json::exception& e)
     {
@@ -41,6 +46,7 @@ nlohmann::json Alarm::SaveState() const
     alarm["hour"] = alarm_.hour;
     alarm["minute"] = alarm_.minute;
     alarm["days"] = alarm_.days;
+    alarm["animation_hash"] = alarm_.animation_hash;
     return alarm;
 }
 
@@ -80,6 +86,8 @@ void Alarm::OnTimeout(const asio::error_code& error)
            && alarm_.days.count(local_tm_now.tm_wday))
         {
             I("Trigger alarm");
+            controller_.SetAnimation(alarm_.animation_hash);
+            controller_.SetPowerAnimation(true);
         }
     }
 }
