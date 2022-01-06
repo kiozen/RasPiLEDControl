@@ -77,22 +77,6 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 resp["blue"] = blue;
                 sendJson(resp);
             }
-            else if(msg["cmd"] == "set_power")
-            {
-                controller_.SetPower(msg["power"]);
-
-                nlohmann::json resp;
-                resp["rsp"] = "get_power";
-                resp["power"] = controller_.GetPower();
-                sendJson(resp);
-            }
-            else if(msg["cmd"] == "get_power")
-            {
-                nlohmann::json resp;
-                resp["rsp"] = "get_power";
-                resp["power"] = controller_.GetPower();
-                sendJson(resp);
-            }
             else if(msg["cmd"] == "set_alarm")
             {
                 Alarm::alarm_t alarm;
@@ -124,12 +108,19 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
             }
             else if(msg["cmd"] == "set_animation")
             {
-                controller_.StartAnimation(msg["hash"]);
-
-                nlohmann::json resp;
-                resp["rsp"] = "get_power";
-                resp["power"] = controller_.GetPower();
-                sendJson(resp);
+                controller_.SetAnimation(msg["hash"]);
+            }
+            else if(msg["cmd"] == "set_power_light")
+            {
+                controller_.SetPowerLight(msg["power"]);
+            }
+            else if(msg["cmd"] == "set_power_animation")
+            {
+                controller_.SetPowerAnimation(msg["power"]);
+            }
+            else if(msg["cmd"] == "get_power")
+            {
+                sendPowerStatus();
             }
         }
         catch(const nlohmann::json::exception& e)
@@ -144,8 +135,20 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
     Exec();
 }
 
+void Session::sendPowerStatus()
+{
+    nlohmann::json resp;
+    resp["rsp"] = "get_power";
+    resp["light"] = controller_.GetPowerLight();
+    resp["animation"] = controller_.GetPowerAnimation();
+    sendJson(resp);
+}
+
 void Session::sendJson(const nlohmann::json& msg)
 {
-    D(fmt::format("send: {}", msg.dump()));
-    socket_.send(asio::buffer(msg.dump() + "\n"));
+    if(socket_.is_open())
+    {
+        D(fmt::format("send: {}", msg.dump()));
+        socket_.send(asio::buffer(msg.dump() + "\n"));
+    }
 }

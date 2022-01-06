@@ -282,6 +282,7 @@ void Controller::SetPowerAnimation(bool on)
     session_->sendPowerStatus();
     SaveState();
 }
+
 bool Controller::GetPowerAnimation() const
 {
     return animation_.GetPower();

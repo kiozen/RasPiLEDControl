@@ -6,7 +6,8 @@
 
 
 Light::Light(asio::io_context& io, Controller& parent)
-    : Log("light")
+    : Power(module_e::light, parent)
+    , Log("light")
     , io_(io)
     , controller_(parent)
 {
@@ -21,6 +22,7 @@ void Light::RestoreState(const nlohmann::json& cfg)
     try
     {
         color_ = cfg.value("color", 0);
+        controller_.SetPowerLight(cfg.value("power", false));
     }
     catch(const nlohmann::json::exception& e)
     {
@@ -32,11 +34,12 @@ nlohmann::json Light::SaveState() const
 {
     nlohmann::json cfg;
     cfg["color"] = color_;
+    cfg["power"] = GetPower();
     return cfg;
 }
 
-void Light::SetColor(ws2811_led_t color)
+
+bool Light::SwitchOn()
 {
-    color_ = color;
-    controller_.SwitchPower();
+    return controller_.Render(color_) == WS2811_SUCCESS;
 }

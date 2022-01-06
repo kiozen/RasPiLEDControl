@@ -14,6 +14,7 @@ set(SRC
     light.cpp
     alarm.cpp
     animation.cpp
+    power.cpp
 )
 
 set(HDR
@@ -23,6 +24,7 @@ set(HDR
     light.hpp
     alarm.hpp
     animation.hpp
+    power.hpp
 )
 
 set(PROJECT_SOURCES

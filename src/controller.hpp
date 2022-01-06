@@ -25,22 +25,24 @@ public:
 
     std::string getName() const {return name_;}
 
-    void SetPower(bool on);
-    bool GetPower() const {return power_;}
-    void SwitchPower();
+    void SetPowerLight(bool on);
+    bool GetPowerLight() const;
+
+    void SetPowerAnimation(bool on);
+    bool GetPowerAnimation() const;
 
     void SetAlarm(const Alarm::alarm_t& alarm);
-    Alarm::alarm_t GetAlarm() const {return alarm_clock_.GetAlarm();}
+    Alarm::alarm_t GetAlarm() const {return alarm_.GetAlarm();}
 
     void SetColorRgb(uint8_t red, uint8_t green, uint8_t blue);
     std::tuple<uint8_t, uint8_t, uint8_t> GetColorRgb() const;
 
-
     nlohmann::json GetAnimationInfo() const {return animation_.GetAnimationInfo();}
-    void StartAnimation(const std::string& hash);
+    void SetAnimation(const std::string& hash);
 
     ws2811_return_t Clear();
     ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
+    ws2811_return_t Render(ws2811_led_t color);
 
 private:
     static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
@@ -76,9 +78,7 @@ private:
     std::string name_;
     std::string mac_;
 
-    bool power_ {false};
-
-    Alarm alarm_clock_ {io_, *this};
+    Alarm alarm_ {io_, *this};
     Light light_ {io_, *this};
     Animation animation_ {io_, *this};
 };

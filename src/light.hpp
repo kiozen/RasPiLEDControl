@@ -7,10 +7,11 @@
 #include <ws2811/ws2811.h>
 
 #include "log.hpp"
+#include "power.hpp"
 
 class Controller;
 
-class Light : public Log
+class Light : public Power, public Log
 {
 public:
     Light(asio::io_context& io, Controller& parent);
@@ -19,8 +20,13 @@ public:
     void RestoreState(const nlohmann::json& cfg);
     nlohmann::json SaveState() const;
 
-    void SetColor(ws2811_led_t color);
+    void SetColor(ws2811_led_t color) {color_ = color;}
     ws2811_led_t GetColor() const {return color_;}
+
+protected:
+    bool SwitchOn() override;
+    void SwitchOff() override {}
+
 private:
     asio::io_context& io_;
     Controller& controller_;

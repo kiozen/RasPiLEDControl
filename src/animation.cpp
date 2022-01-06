@@ -12,7 +12,8 @@
 constexpr const char* kAnimationPath = "/home/pi";
 
 Animation::Animation(asio::io_context& io, Controller& parent)
-    : Log("animation")
+    : Power(module_e::animation, parent)
+    , Log("animation")
     , controller_(parent)
     , timer_(io)
 {
@@ -62,6 +63,35 @@ Animation::~Animation()
 {
 }
 
+bool Animation::SwitchOn()
+{
+    if(animation_.empty())
+    {
+        D("animation is empty");
+        return false;
+    }
+
+    if(controller_.Clear() != WS2811_SUCCESS)
+    {
+        D("clear controller failed");
+        return false;
+    }
+
+    index_ = 0;
+    timer_.expires_at( std::chrono::steady_clock::now() + std::chrono::milliseconds(100));
+    timer_.async_wait([this](const asio::error_code& error){
+        OnAnimate(error);
+    });
+
+    return true;
+}
+
+void Animation::SwitchOff()
+{
+    timer_.cancel();
+}
+
+
 nlohmann::json Animation::GetAnimationInfo() const
 {
     std::vector<nlohmann::json> infos;
@@ -80,16 +110,16 @@ nlohmann::json Animation::GetAnimationInfo() const
     return nlohmann::json(infos);
 }
 
-bool Animation::StartAnimation(const std::string& hash)
+void Animation::SetAnimation(const std::string& hash)
 {
     if(animations_.count(hash) == 0)
     {
-        return false;
+        animation_.clear();
+        index_ = -1;
+        return;
     }
 
     LoadAnimation(animations_[hash].path.c_str());
-
-    return true;
 }
 
 void Animation::LoadAnimation(const std::string& filename)
@@ -99,10 +129,6 @@ void Animation::LoadAnimation(const std::string& filename)
     const auto& json_ = nlohmann::json::parse(ifs);
     animation_ = json_["data"].get<animation_t>();
     index_ = 0;
-    timer_.expires_at( std::chrono::steady_clock::now() + std::chrono::milliseconds(100));
-    timer_.async_wait([this](const asio::error_code& error){
-        OnAnimate(error);
-    });
 }
 
 void Animation::OnAnimate(const asio::error_code& error)
@@ -110,13 +136,13 @@ void Animation::OnAnimate(const asio::error_code& error)
     if(error)
     {
         E(fmt::format("Cyclic loop failed: {}", error.message()));
-        controller_.Clear();
+        controller_.SetPowerAnimation(false);
         return;
     }
 
     if (index_ == animation_.size())
     {
-        controller_.Clear();
+        controller_.SetPowerAnimation(false);
         return;
     }
     const auto& [time, matrix] = animation_[index_++];

@@ -18,9 +18,12 @@ public:
 
     void Exec();
 
+    void sendPowerStatus();
+
 private:
     void OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const asio::error_code& error, std::size_t size);
     void sendJson(const nlohmann::json& msg);
+
 
     asio::ip::tcp::socket socket_;
     asio::steady_timer timer_;

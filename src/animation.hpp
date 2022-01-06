@@ -9,10 +9,11 @@
 #include <ws2811/ws2811.h>
 
 #include "log.hpp"
+#include "power.hpp"
 
 class Controller;
 
-class Animation : public Log
+class Animation : public Power, public Log
 {
 public:
     Animation(asio::io_context& io, Controller& parent);
@@ -27,7 +28,11 @@ public:
 
     nlohmann::json GetAnimationInfo() const;
 
-    bool StartAnimation(const std::string& hash);
+    void SetAnimation(const std::string& hash);
+
+protected:
+    bool SwitchOn() override;
+    void SwitchOff() override;
 
 private:
     void LoadAnimation(const std::string& filename);
