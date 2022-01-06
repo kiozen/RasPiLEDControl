@@ -1,0 +1,13 @@
+[Unit]
+Description=Control LED stripe
+
+[Service]
+Type=simple
+ExecStart=/home/pi/ledcontrol
+User=root
+Restart=always
+WorkingDirectory=/home/pi
+
+[Install]
+WantedBy=multi-user.target
+
