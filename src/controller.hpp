@@ -9,6 +9,7 @@
 #include <ws2811/ws2811.h>
 
 #include "alarm.hpp"
+#include "animation.hpp"
 #include "light.hpp"
 #include "log.hpp"
 
@@ -32,7 +33,14 @@ public:
     Alarm::alarm_t GetAlarm() const {return alarm_clock_.GetAlarm();}
 
     void SetColorRgb(uint8_t red, uint8_t green, uint8_t blue);
-    std::tuple<uint8_t, uint8_t, uint8_t> GetColorRgb() const {return light_.GetColorRgb();}
+    std::tuple<uint8_t, uint8_t, uint8_t> GetColorRgb() const;
+
+
+    nlohmann::json GetAnimationInfo() const {return animation_.GetAnimationInfo();}
+    void StartAnimation(const std::string& hash);
+
+    ws2811_return_t Clear();
+    ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
 
 private:
     static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
@@ -45,15 +53,11 @@ private:
 
     ws2811_t ledstring;
 
-    void LoadAnimation(const std::string& filename);
-    void OnAnimate(const asio::error_code& error);
     void OnSignal(const asio::error_code& error, int signal_number);
     void OnReceiveUdp(const asio::error_code& error, std::size_t size);
     bool SetupUdp();
 
     void SetColor(uint32_t color);
-    ws2811_return_t Clear();
-    ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
 
     void SaveState();
     void RestoreState();
@@ -69,12 +73,6 @@ private:
     asio::ip::tcp::acceptor acceptor_ {io_, endpoint_};
     std::unique_ptr<class Session> session_;
 
-    using animation_step_t = std::tuple<int, std::vector<ws2811_led_t> >;
-    using animation_t = std::vector<animation_step_t >;
-    int index_ {0};
-    animation_t animation_;
-    asio::steady_timer timer_animation_ {io_, UPDATE_PERIOD};
-
     std::string name_;
     std::string mac_;
 
@@ -82,6 +80,7 @@ private:
 
     Alarm alarm_clock_ {io_, *this};
     Light light_ {io_, *this};
+    Animation animation_ {io_, *this};
 };
 
 #endif // SRC_CONTROLER_HPP

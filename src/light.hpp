@@ -21,12 +21,6 @@ public:
 
     void SetColor(ws2811_led_t color);
     ws2811_led_t GetColor() const {return color_;}
-    std::tuple<uint8_t, uint8_t, uint8_t> GetColorRgb() const
-    {
-        return {color_ >> 16 & 0xff, color_ >> 8 & 0x0FF, color_ & 0x0FF};
-    }
-
-
 private:
     asio::io_context& io_;
     Controller& controller_;

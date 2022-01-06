@@ -21,6 +21,7 @@ Session::~Session()
 
 void Session::Exec()
 {
+    // timeout stall sessions
     timer_.cancel();
     timer_.expires_at(std::chrono::steady_clock::now() + std::chrono::minutes(1));
     timer_.async_wait([this](const asio::error_code& error){
@@ -31,6 +32,7 @@ void Session::Exec()
         }
     });
 
+    // start receiving
     std::shared_ptr<asio::streambuf> buffer(new asio::streambuf());
     asio::async_read_until(socket_, *buffer.get(), '\n', [this, buffer](const asio::error_code& error, std::size_t size){
         OnMessageReceived(buffer, error, size);
@@ -111,6 +113,22 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 resp["hour"] = alarm.hour;
                 resp["minute"] = alarm.minute;
                 resp["days"] = alarm.days;
+                sendJson(resp);
+            }
+            else if(msg["cmd"] == "get_animations")
+            {
+                nlohmann::json resp;
+                resp["rsp"] = "get_animations";
+                resp["animations"] = controller_.GetAnimationInfo();
+                sendJson(resp);
+            }
+            else if(msg["cmd"] == "set_animation")
+            {
+                controller_.StartAnimation(msg["hash"]);
+
+                nlohmann::json resp;
+                resp["rsp"] = "get_power";
+                resp["power"] = controller_.GetPower();
                 sendJson(resp);
             }
         }

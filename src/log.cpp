@@ -33,5 +33,5 @@ void Log::print(const std::string& level, const std::string& msg)
     const auto& duration = now.time_since_epoch();
     auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
 
-    std::cout << fmt::format("{:%y-%m-%d %H:%M:%S}.{} {} {}: ", now, millis, level, tag_) << msg << std::endl;
+    std::cout << fmt::format("{:%y-%m-%d %H:%M:%S}.{:03} {} {}: ", now, millis, level, tag_) << msg << std::endl;
 }

@@ -161,35 +161,6 @@ bool Controller::StartServer()
     return true;
 }
 
-void Controller::LoadAnimation(const std::string& filename)
-{
-    I(fmt::format("Load animation {}", filename));
-    std::ifstream ifs(filename);
-    const auto& json_ = nlohmann::json::parse(ifs);
-    animation_ = json_["data"].get<animation_t>();
-    index_ = 0;
-}
-
-void Controller::OnAnimate(const asio::error_code& error)
-{
-    if(error)
-    {
-        E(fmt::format("Cyclic loop failed: {}", error.message()));
-        Clear();
-        return;
-    }
-
-    if (index_ == animation_.size())
-    {
-        index_ = 0;
-    }
-    const auto& [time, matrix] = animation_[index_++];
-    Render(matrix);
-    timer_animation_.expires_at( timer_animation_.expiry() + std::chrono::milliseconds(time));
-    timer_animation_.async_wait([this](const asio::error_code& error){
-        OnAnimate(error);
-    });
-}
 
 void Controller::OnSignal(const asio::error_code& error, int signal_number)
 {
@@ -261,6 +232,12 @@ void Controller::SetColorRgb(uint8_t red, uint8_t green, uint8_t blue)
     SetColor(red << 16 | green << 8 | blue);
 }
 
+std::tuple<uint8_t, uint8_t, uint8_t> Controller::GetColorRgb() const
+{
+    ws2811_led_t color = light_.GetColor();
+    return {color >> 16 & 0xff, color >> 8 & 0x0FF, color & 0x0FF};
+}
+
 void Controller::SetColor(uint32_t color)
 {
     light_.SetColor(color);
@@ -295,6 +272,15 @@ void Controller::SetAlarm(const Alarm::alarm_t& alarm)
 {
     alarm_clock_.SetAlarm(alarm);
     SaveState();
+}
+
+void Controller::StartAnimation(const std::string& hash)
+{
+    if(animation_.StartAnimation(hash))
+    {
+        power_ = true;
+        SaveState();
+    }
 }
 
 ws2811_return_t Controller::Clear()

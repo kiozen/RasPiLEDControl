@@ -1,6 +1,8 @@
 find_package(ASIO REQUIRED)
 find_package(WS2811 REQUIRED)
 find_package(FMT REQUIRED)
+find_package(OpenSSL REQUIRED)
+
 
 STRING(TOLOWER ${PROJECT_NAME} APPLICATION_NAME)
 
@@ -11,6 +13,7 @@ set(SRC
     session.cpp
     light.cpp
     alarm.cpp
+    animation.cpp
 )
 
 set(HDR
@@ -19,6 +22,7 @@ set(HDR
     session.hpp
     light.hpp
     alarm.hpp
+    animation.hpp
 )
 
 set(PROJECT_SOURCES
@@ -36,4 +40,5 @@ target_link_libraries(${APPLICATION_NAME}
     WS2811::WS2811
     fmt::fmt
     stdc++fs
+    OpenSSL::Crypto
 )
