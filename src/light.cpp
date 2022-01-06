@@ -39,6 +39,15 @@ nlohmann::json Light::SaveState() const
 }
 
 
+void Light::SetColor(ws2811_led_t color)
+{
+    color_ = color;
+    if(GetPower())
+    {
+        SwitchOn();
+    }
+}
+
 bool Light::SwitchOn()
 {
     return controller_.Render(color_) == WS2811_SUCCESS;
