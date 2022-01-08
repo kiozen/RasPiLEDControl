@@ -1,0 +1,5 @@
+V 1.0.0
+* Initial release
+* Light mode 
+* Animation mode
+* Alarm clock playing Animation
