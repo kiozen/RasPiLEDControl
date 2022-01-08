@@ -124,8 +124,11 @@ void Animation::SetAnimation(const std::string& hash)
         index_ = -1;
         return;
     }
-    hash_ = hash;
-    LoadAnimation(animations_[hash].path.c_str());
+    if(hash_ != hash)
+    {
+        hash_ = hash;
+        LoadAnimation(animations_[hash].path.c_str());
+    }
 }
 
 void Animation::LoadAnimation(const std::string& filename)

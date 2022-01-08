@@ -22,7 +22,6 @@ void Light::RestoreState(const nlohmann::json& cfg)
     try
     {
         color_ = cfg.value("color", 0);
-        controller_.SetPowerLight(cfg.value("power", false));
         I("Restored light");
     }
     catch(const nlohmann::json::exception& e)

@@ -32,8 +32,15 @@ Controller::~Controller()
 {
 }
 
+static bool restore_state_active = false;
+
 void Controller::SaveState()
 {
+    if(restore_state_active)
+    {
+        return;
+    }
+
     nlohmann::json cfg;
     cfg["name"] = name_;
 
@@ -50,6 +57,7 @@ void Controller::SaveState()
 
 void Controller::RestoreState()
 {
+    restore_state_active = true;
     try
     {
         std::filesystem::path path {kConfigPath};
@@ -63,12 +71,16 @@ void Controller::RestoreState()
 
         light_.RestoreState(cfg.value("light", nlohmann::json()));
         alarm_.RestoreState(cfg.value("alarm", nlohmann::json()));
+
+        SetPowerLight(cfg.value("light", nlohmann::json()).value("power", false));
         I("Restored all configurations");
     }
     catch(const nlohmann::json::exception& e)
     {
         E(fmt::format("Parsing config failed: {}", e.what()));
     }
+
+    restore_state_active = false;
 }
 
 
@@ -192,7 +204,7 @@ void Controller::OnReceiveUdp(const asio::error_code& error, std::size_t size)
                 resp["mac"] = mac_;
 
                 std::size_t s = udp_socket_.send_to(asio::buffer(resp.dump()), remote_endpoint_);
-                // D(fmt::format("{} {} {}", s, remote_endpoint_.address().to_string(), remote_endpoint_.port()));
+                //D(fmt::format("{} {} {}", remote_endpoint_.address().to_string(), remote_endpoint_.port(), recv_buffer_.data()));
             }
         }
         catch(const std::exception& e)
@@ -236,7 +248,6 @@ ws2811_return_t Controller::Clear()
     std::vector<ws2811_led_t> matrix(LED_COUNT, 0x00000000);
     return Render(matrix);
 }
-
 
 void Controller::SetColorRgb(uint8_t red, uint8_t green, uint8_t blue)
 {
