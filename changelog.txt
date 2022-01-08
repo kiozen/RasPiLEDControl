@@ -1,3 +1,6 @@
+V 1.x.x
+LEDC-1: Add deploy script
+
 V 1.0.0
 * Initial release
 * Light mode 
