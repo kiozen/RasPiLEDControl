@@ -76,7 +76,8 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
         try
         {
             const nlohmann::json& msg = nlohmann::json::parse(s);
-            if(msg["cmd"] == "set_color")
+            const std::string& cmd = msg["cmd"];
+            if(cmd == "set_color")
             {
                 uint8_t red = msg["red"];
                 uint8_t green = msg["green"];
@@ -84,7 +85,7 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
 
                 controller_.SetColorRgb(red, green, blue);
             }
-            else if(msg["cmd"] == "get_color")
+            else if(cmd == "get_color")
             {
                 auto [red, green, blue] = controller_.GetColorRgb();
                 nlohmann::json resp;
@@ -94,7 +95,7 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 resp["blue"] = blue;
                 sendJson(resp);
             }
-            else if(msg["cmd"] == "set_alarm")
+            else if(cmd == "set_alarm")
             {
                 Alarm::alarm_t alarm;
                 alarm.name = msg["name"];
@@ -105,7 +106,7 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 alarm.animation_hash = msg["animation_hash"];
                 controller_.SetAlarm(alarm);
             }
-            else if(msg["cmd"] == "get_alarm")
+            else if(cmd == "get_alarm")
             {
                 const Alarm::alarm_t& alarm = controller_.GetAlarm();
                 nlohmann::json resp;
@@ -118,35 +119,54 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 resp["animation_hash"] = alarm.animation_hash;
                 sendJson(resp);
             }
-            else if(msg["cmd"] == "get_animations")
+            else if(cmd == "get_animations")
             {
                 nlohmann::json resp;
                 resp["rsp"] = "get_animations";
                 resp["animations"] = controller_.GetAnimationInfo();
                 sendJson(resp);
             }
-            else if(msg["cmd"] == "set_animation")
+            else if(cmd == "set_animation")
             {
                 controller_.SetAnimation(msg["hash"]);
             }
-            else if(msg["cmd"] == "get_animation")
+            else if(cmd == "get_animation")
             {
                 nlohmann::json resp;
                 resp["rsp"] = "get_animation";
                 resp["hash"] = controller_.GetAnimation();
                 sendJson(resp);
             }
-            else if(msg["cmd"] == "set_power_light")
+            else if(cmd == "set_power_light")
             {
                 controller_.SetPowerLight(msg["power"]);
             }
-            else if(msg["cmd"] == "set_power_animation")
+            else if(cmd == "set_power_animation")
             {
                 controller_.SetPowerAnimation(msg["power"]);
             }
-            else if(msg["cmd"] == "get_power")
+            else if(cmd == "get_power")
             {
                 sendPowerStatus();
+            }
+            else if(cmd == "get_system_config")
+            {
+                nlohmann::json resp;
+                resp["rsp"] = "get_system_config";
+
+                const auto& [name, led_count, max_brightness] = controller_.GetSystemConfig();
+                resp["name"] = name;
+                resp["led_count"] = led_count;
+                resp["max_brightness"] = max_brightness;
+                sendJson(resp);
+            }
+            else if(cmd == "set_system_config")
+            {
+                controller_.SetSystemConfig(
+                    msg["name"],
+                    msg["led_count"],
+                    msg["max_brightness"]
+                    );
             }
         }
         catch(const nlohmann::json::exception& e)

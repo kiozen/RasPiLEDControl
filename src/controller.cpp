@@ -27,8 +27,10 @@
 
 #include "session.hpp"
 
+constexpr const char* kSystemFile = "system.json";
 constexpr const char* kConfigFile = "config.json";
 constexpr const char* kConfigPath = "/home/pi/.config/led_control/";
+
 
 #ifndef _MKSTR_1
 #define _MKSTR_1(x)    #x
@@ -42,18 +44,36 @@ constexpr const char* kConfigPath = "/home/pi/.config/led_control/";
 Controller::Controller() : Log("ctrl")
 {
     I(fmt::format("-------------- {} --------------", WHAT_STR));
-
-    memset(&ledstring, 0, sizeof (ledstring));
-    ledstring.freq = TARGET_FREQ;
-    ledstring.dmanum = DMA;
-    ledstring.channel[0].gpionum = GPIO_PIN;
-    ledstring.channel[0].count = LED_COUNT;
-    ledstring.channel[0].invert = 0;
-    ledstring.channel[0].brightness = 100;
-    ledstring.channel[0].strip_type = STRIP_TYPE;
-
     const std::filesystem::path path{kConfigPath};
     std::filesystem::create_directories(path);
+
+
+    memset(&ledstring_, 0, sizeof (ledstring_));
+    ledstring_.freq = TARGET_FREQ;
+    ledstring_.dmanum = DMA;
+    ledstring_.channel[0].gpionum = GPIO_PIN;
+    ledstring_.channel[0].count = LED_COUNT;
+    ledstring_.channel[0].invert = 0;
+    ledstring_.channel[0].brightness = 100;
+    ledstring_.channel[0].strip_type = STRIP_TYPE;
+
+    try
+    {
+        std::filesystem::path path {kConfigPath};
+        path /= kSystemFile;
+        std::ifstream file(path);
+
+        nlohmann::json cfg;
+        file >> cfg;
+
+        name_ = cfg.value("name", "");
+        ledstring_.channel[0].count = cfg.value("led_count", LED_COUNT);
+        ledstring_.channel[0].brightness = cfg.value("max_brightness", 100);
+    }
+    catch(const nlohmann::json::exception& e)
+    {
+        E(fmt::format("Parsing system config failed: {}", e.what()));
+    }
 }
 
 Controller::~Controller()
@@ -70,8 +90,6 @@ void Controller::SaveState()
     }
 
     nlohmann::json cfg;
-    cfg["name"] = name_;
-
     cfg["light"] = light_.SaveState();
     cfg["alarm"] = alarm_.SaveState();
 
@@ -94,8 +112,6 @@ void Controller::RestoreState()
 
         nlohmann::json cfg;
         file >> cfg;
-
-        name_ = cfg.value("name", "");
 
         light_.RestoreState(cfg.value("light", nlohmann::json()));
         alarm_.RestoreState(cfg.value("alarm", nlohmann::json()));
@@ -130,7 +146,7 @@ int Controller::exec()
         return -1;
     }
 
-    if ((ret = ws2811_init(&ledstring)) != WS2811_SUCCESS)
+    if ((ret = ws2811_init(&ledstring_)) != WS2811_SUCCESS)
     {
         E(fmt::format("ws2811_init failed: {} ({})", ws2811_get_return_t_str(ret), ret));
         if(ret == WS2811_ERROR_MMAP)
@@ -148,7 +164,7 @@ int Controller::exec()
 
     Clear();
 
-    ws2811_fini(&ledstring);
+    ws2811_fini(&ledstring_);
     return ret;
 }
 
@@ -254,11 +270,11 @@ void Controller::OnReceiveUdp(const asio::error_code& error, std::size_t size)
 
 ws2811_return_t Controller::Render(const std::vector<ws2811_led_t>& matrix)
 {
-    std::size_t size = std::min(matrix.size(), static_cast<std::size_t>(ledstring.channel[0].count));
-    memcpy(ledstring.channel[0].leds, matrix.data(), size * sizeof(ws2811_led_t));
+    std::size_t size = std::min(matrix.size(), static_cast<std::size_t>(ledstring_.channel[0].count));
+    memcpy(ledstring_.channel[0].leds, matrix.data(), size * sizeof(ws2811_led_t));
 
     ws2811_return_t ret = WS2811_SUCCESS;
-    if ((ret = ws2811_render(&ledstring)) != WS2811_SUCCESS)
+    if ((ret = ws2811_render(&ledstring_)) != WS2811_SUCCESS)
     {
         E(fmt::format("ws2811_render failed: {} ({})", ws2811_get_return_t_str(ret), ret));
     }
@@ -327,6 +343,40 @@ void Controller::SetPowerAnimation(bool on)
 bool Controller::GetPowerAnimation() const
 {
     return animation_.GetPower();
+}
+
+std::tuple<std::string, int, uint8_t> Controller::GetSystemConfig() const
+{
+    return {name_, ledstring_.channel[0].count, ledstring_.channel[0].brightness};
+}
+
+void Controller::SetSystemConfig(const std::string& name, int led_count, uint8_t max_brightness)
+{
+    name_ = name;
+    ledstring_.channel[0].count = led_count;
+    ledstring_.channel[0].brightness = max_brightness;
+
+    ws2811_fini(&ledstring_);
+
+    ws2811_return_t ret = WS2811_SUCCESS;
+    if ((ret = ws2811_init(&ledstring_)) != WS2811_SUCCESS)
+    {
+        E(fmt::format("ws2811_init failed: {} ({})", ws2811_get_return_t_str(ret), ret));
+        io_.stop();
+        return;
+    }
+
+    nlohmann::json cfg;
+    cfg["name"] = name_;
+    cfg["led_count"] = ledstring_.channel[0].count;
+    cfg["max_brightness"] = ledstring_.channel[0].brightness;
+
+    std::filesystem::path path {kConfigPath};
+    path /= kSystemFile;
+
+    std::ofstream file(path);
+    file << cfg;
+    file.flush();
 }
 
 
