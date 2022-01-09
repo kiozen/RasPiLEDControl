@@ -1,5 +1,6 @@
 V 1.x.x
 LEDC-1: Add deploy script
+LEDC-3: Add message to setup system properties
 
 V 1.0.0
 * Initial release

@@ -58,6 +58,9 @@ public:
     void SetAnimation(const std::string& hash);
     std::string GetAnimation() const {return animation_.GetAnimation();}
 
+    std::tuple<std::string, int, uint8_t> GetSystemConfig() const;
+    void SetSystemConfig(const std::string& name, int led_count, uint8_t max_brightness);
+
     ws2811_return_t Clear();
     ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
     ws2811_return_t Render(ws2811_led_t color);
@@ -71,7 +74,7 @@ private:
     static constexpr auto UPDATE_PERIOD = std::chrono::milliseconds(5000);
     static constexpr uint16_t PORT = 7755;
 
-    ws2811_t ledstring;
+    ws2811_t ledstring_;
 
     void OnSignal(const asio::error_code& error, int signal_number);
     void OnReceiveUdp(const asio::error_code& error, std::size_t size);
