@@ -283,13 +283,13 @@ ws2811_return_t Controller::Render(const std::vector<ws2811_led_t>& matrix)
 
 ws2811_return_t Controller::Render(ws2811_led_t color)
 {
-    std::vector<ws2811_led_t> matrix(LED_COUNT, color);
+    std::vector<ws2811_led_t> matrix(ledstring_.channel[0].count, color);
     return Render(matrix);
 }
 
 ws2811_return_t Controller::Clear()
 {
-    std::vector<ws2811_led_t> matrix(LED_COUNT, 0x00000000);
+    std::vector<ws2811_led_t> matrix(ledstring_.channel[0].count, 0x00000000);
     return Render(matrix);
 }
 
@@ -352,6 +352,8 @@ std::tuple<std::string, int, uint8_t> Controller::GetSystemConfig() const
 
 void Controller::SetSystemConfig(const std::string& name, int led_count, uint8_t max_brightness)
 {
+    Clear();
+
     name_ = name;
     ledstring_.channel[0].count = led_count;
     ledstring_.channel[0].brightness = max_brightness;
@@ -365,6 +367,8 @@ void Controller::SetSystemConfig(const std::string& name, int led_count, uint8_t
         io_.stop();
         return;
     }
+
+    light_.SetColor();
 
     nlohmann::json cfg;
     cfg["name"] = name_;

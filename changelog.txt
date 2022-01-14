@@ -1,6 +1,7 @@
 V 1.x.x
 LEDC-1: Add deploy script
 LEDC-3: Add message to setup system properties
+LEDC-5: Reflect changes in the setup immediately
 
 V 1.0.0
 * Initial release
