@@ -55,6 +55,13 @@ nlohmann::json Light::SaveState() const
     return cfg;
 }
 
+void Light::SetColor()
+{
+    if(GetPower())
+    {
+        SwitchOn();
+    }
+}
 
 void Light::SetColor(ws2811_led_t color)
 {

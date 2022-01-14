@@ -37,6 +37,7 @@ public:
     void RestoreState(const nlohmann::json& cfg);
     nlohmann::json SaveState() const;
 
+    void SetColor();
     void SetColor(ws2811_led_t color);
     ws2811_led_t GetColor() const {return color_;}
 
