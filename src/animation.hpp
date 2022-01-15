@@ -36,13 +36,6 @@ public:
     Animation(asio::io_context& io, Controller& parent);
     virtual ~Animation();
 
-    struct info_t
-    {
-        std::string name;
-        std::string desc;
-        std::filesystem::path path;
-    };
-
     nlohmann::json GetAnimationInfo() const;
 
     void SetAnimation(const std::string& hash);
@@ -56,6 +49,13 @@ private:
     void LoadAnimation(const std::string& filename);
     void OnAnimate(const asio::error_code& error);
 
+    enum class mode_e
+    {
+        single,
+        cyclic
+    };
+
+
     Controller& controller_;
 
     using animation_step_t = std::tuple<int, std::vector<ws2811_led_t> >;
@@ -63,8 +63,17 @@ private:
     animation_t animation_;
     int index_ {0};
     std::string hash_;
+    mode_e mode_ {mode_e::single};
 
     asio::steady_timer timer_;
+    struct info_t
+    {
+        mode_e mode {mode_e::single};
+        std::string name;
+        std::string desc;
+        std::filesystem::path path;
+    };
+
     std::map<std::string, info_t> animations_;
 };
 
