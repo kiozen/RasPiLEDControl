@@ -2,6 +2,7 @@ V 1.x.x
 LEDC-1: Add deploy script
 LEDC-3: Add message to setup system properties
 LEDC-5: Reflect changes in the setup immediately
+LEDC-7: Add option for cyclic animations
 
 V 1.0.0
 * Initial release
