@@ -49,11 +49,21 @@ Animation::Animation(asio::io_context& io, Controller& parent)
             nlohmann::json animation;
             file >> animation;
 
-
-
             const std::string& name = animation["name"];
             const std::string& description = animation["description"];
             const std::string& content = name + description;
+
+            mode_e mode = mode_e::single;
+            const std::string& m = animation.value("mode", "single");
+            if(m == "single")
+            {
+                mode = mode_e::single;
+            }
+            else if(m == "cyclic")
+            {
+                mode = mode_e::cyclic;
+            }
+
 
             unsigned char buffer[MD5_DIGEST_LENGTH];
             MD5((unsigned char*) content.c_str(), content.size(), buffer);
@@ -65,7 +75,7 @@ Animation::Animation(asio::io_context& io, Controller& parent)
                 hash += "0123456789ABCDEF"[buffer[i] % 16];
             }
 
-            animations_[hash] = {name, description, path};
+            animations_[hash] = {mode, name, description, path};
 
             D(fmt::format("Found animation '{} {}'.", animation["name"], hash));
         }
@@ -144,6 +154,7 @@ void Animation::SetAnimation(const std::string& hash)
     if(hash_ != hash)
     {
         hash_ = hash;
+        mode_ = animations_[hash].mode;
         LoadAnimation(animations_[hash].path.c_str());
     }
 }
@@ -168,8 +179,15 @@ void Animation::OnAnimate(const asio::error_code& error)
 
     if (index_ == animation_.size())
     {
-        controller_.SetPowerAnimation(false);
-        return;
+        if(mode_ == mode_e::cyclic)
+        {
+            index_ = 0;
+        }
+        else
+        {
+            controller_.SetPowerAnimation(false);
+            return;
+        }
     }
     const auto& [time, matrix] = animation_[index_++];
     controller_.Render(matrix);
