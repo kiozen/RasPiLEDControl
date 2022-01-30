@@ -328,9 +328,16 @@ void Controller::SetPowerLight(bool on)
     session_->sendPowerStatus();
     SaveState();
 }
+
 bool Controller::GetPowerLight() const
 {
     return light_.GetPower();
+}
+
+void Controller::SetPredefinedColors(const ColorVector& colors)
+{
+    light_.SetPredefinedColors(colors);
+    SaveState();
 }
 
 void Controller::SetPowerAnimation(bool on)

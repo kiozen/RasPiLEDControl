@@ -21,12 +21,15 @@
 #include <asio.hpp>
 #include <nlohmann/json.hpp>
 #include <tuple>
+#include <vector>
 #include <ws2811/ws2811.h>
 
 #include "log.hpp"
 #include "power.hpp"
 
 class Controller;
+
+using ColorVector = std::vector<ws2811_led_t>;
 
 class Light : public Power, public Log
 {
@@ -41,6 +44,9 @@ public:
     void SetColor(ws2811_led_t color);
     ws2811_led_t GetColor() const {return color_;}
 
+    void SetPredefinedColors(const ColorVector& colors){predefined_colors_ = colors;}
+    ColorVector GetPredefinedColors() const {return predefined_colors_;}
+
 protected:
     bool SwitchOn() override;
     void SwitchOff() override;
@@ -50,6 +56,8 @@ private:
     Controller& controller_;
 
     ws2811_led_t color_ {0};
+
+    ColorVector predefined_colors_;
 };
 
 #endif // SRC_LIGHT_HPP

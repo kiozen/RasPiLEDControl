@@ -39,6 +39,7 @@ void Light::RestoreState(const nlohmann::json& cfg)
     try
     {
         color_ = cfg.value("color", 0);
+        predefined_colors_ = cfg.value("predefined_colors", ColorVector());
         I("Restored light");
     }
     catch(const nlohmann::json::exception& e)
@@ -52,6 +53,7 @@ nlohmann::json Light::SaveState() const
     nlohmann::json cfg;
     cfg["color"] = color_;
     cfg["power"] = GetPower();
+    cfg["predefined_colors"] = predefined_colors_;
     return cfg;
 }
 
