@@ -61,6 +61,10 @@ public:
     std::tuple<std::string, int, uint8_t> GetSystemConfig() const;
     void SetSystemConfig(const std::string& name, int led_count, uint8_t max_brightness);
 
+    void SetPredefinedColors(const ColorVector& colors);
+    ColorVector GetPredefinedColors() const {return light_.GetPredefinedColors();}
+
+
     ws2811_return_t Clear();
     ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
     ws2811_return_t Render(ws2811_led_t color);

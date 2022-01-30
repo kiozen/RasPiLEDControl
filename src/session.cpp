@@ -168,6 +168,17 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                     msg["max_brightness"]
                     );
             }
+            else if(cmd == "set_predefined_colors")
+            {
+                controller_.SetPredefinedColors(msg["colors"].get<ColorVector>());
+            }
+            else if(cmd == "get_predefined_colors")
+            {
+                nlohmann::json resp;
+                resp["rsp"] = "get_predefined_colors";
+                resp["colors"] = controller_.GetPredefinedColors();
+                sendJson(resp);
+            }
         }
         catch(const nlohmann::json::exception& e)
         {
