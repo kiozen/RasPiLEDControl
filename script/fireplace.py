@@ -2,7 +2,7 @@ import json
 import random
 
 NUM_LED = 300
-FRAME_TIME = 200
+FRAME_TIME = 150
 
 def Color(red, green, blue):
     return red<<16|green<<8|blue
