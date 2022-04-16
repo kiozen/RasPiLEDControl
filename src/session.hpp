@@ -35,7 +35,7 @@ public:
 
     void Exec();
 
-    void sendPowerStatus();
+    void SendPowerStatus();
 
 private:
     void OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const asio::error_code& error, std::size_t size);

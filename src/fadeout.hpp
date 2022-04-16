@@ -15,55 +15,45 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **********************************************************************************************/
-#ifndef SRC_ALARM_HPP
-#define SRC_ALARM_HPP
+#ifndef SRC_TIMEOUT_HPP
+#define SRC_TIMEOUT_HPP
 
 #include <asio.hpp>
-#include <nlohmann/json.hpp>
-#include <set>
 
 #include "log.hpp"
 
 class Controller;
 
-class Alarm : public Log
+class Fadeout : public Log
 {
 public:
-    Alarm(asio::io_context& io, Controller& parent);
-    virtual ~Alarm();
+    Fadeout(asio::io_context& io, Controller& parent);
+    ~Fadeout();
 
-    void RestoreState(const nlohmann::json& cfg);
-    nlohmann::json SaveState() const;
+    void SetTimeout(const std::string& target, std::chrono::minutes minutes);
+    bool GetTimeout() const {return timeout_active_;}
 
-    struct alarm_t
-    {
-        std::string name;
-        bool active {false};
-        int32_t hour {-1};
-        int32_t minute {-1};
-        std::set<int> days;
-        std::string animation_hash;
-    };
+    void Stop();
 
-    void SetAlarm(const alarm_t& alarm)
-    {
-        alarm_ = alarm;
-    }
-
-    alarm_t GetAlarm() const
-    {
-        return alarm_;
-    }
+    void SetNormalBrightness(uint8_t brightness);
 
 private:
-    void OnTimeout(const asio::error_code& error);
+    static constexpr auto kFadeoutInterval = std::chrono::seconds(1);
+    static constexpr auto kFadeoutSteps = 100;
+
+
+    void StartFadeOut();
+    void FadeOut(uint8_t count, const asio::error_code& error);
 
     asio::io_context& io_;
     Controller& controller_;
 
-    asio::steady_timer timer_ {io_, std::chrono::seconds(1)};
+    asio::steady_timer timeout_power_{io_};
+    asio::steady_timer timer_fade_out_{io_};
+    bool timeout_active_{false};
 
-    alarm_t alarm_;
+    uint8_t normal_brightness_{0};
 };
 
-#endif // SRC_ALARM_HPP
+
+#endif // SRC_TIMEOUT_HPP

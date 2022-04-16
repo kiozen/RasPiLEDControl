@@ -147,7 +147,7 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
             }
             else if(cmd == "get_power")
             {
-                sendPowerStatus();
+                SendPowerStatus();
             }
             else if(cmd == "get_system_config")
             {
@@ -179,6 +179,13 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
                 resp["colors"] = controller_.GetPredefinedColors();
                 sendJson(resp);
             }
+            else if(cmd == "set_timeout")
+            {
+                controller_.SetPowerTimeout(
+                    msg["target"],
+                    std::chrono::minutes(msg["minutes"])
+                    );
+            }
         }
         catch(const nlohmann::json::exception& e)
         {
@@ -192,12 +199,13 @@ void Session::OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const a
     Exec();
 }
 
-void Session::sendPowerStatus()
+void Session::SendPowerStatus()
 {
     nlohmann::json resp;
     resp["rsp"] = "get_power";
     resp["light"] = controller_.GetPowerLight();
     resp["animation"] = controller_.GetPowerAnimation();
+    resp["timeout_active"] = controller_.GetPowerTimeout();
     sendJson(resp);
 }
 
