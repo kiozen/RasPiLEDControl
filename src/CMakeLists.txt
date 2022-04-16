@@ -15,6 +15,7 @@ set(SRC
     alarm.cpp
     animation.cpp
     power.cpp
+    fadeout.cpp
 )
 
 set(HDR
@@ -25,6 +26,7 @@ set(HDR
     alarm.hpp
     animation.hpp
     power.hpp
+    fadeout.hpp
 )
 
 set(PROJECT_SOURCES

@@ -27,6 +27,7 @@
 
 #include "alarm.hpp"
 #include "animation.hpp"
+#include "fadeout.hpp"
 #include "light.hpp"
 #include "log.hpp"
 
@@ -48,6 +49,9 @@ public:
     void SetPowerAnimation(bool on);
     bool GetPowerAnimation() const;
 
+    void SetPowerTimeout(const std::string& target, std::chrono::minutes minutes);
+    bool GetPowerTimeout() const {return fadeout_.GetTimeout();}
+
     void SetAlarm(const Alarm::alarm_t& alarm);
     Alarm::alarm_t GetAlarm() const {return alarm_.GetAlarm();}
 
@@ -64,19 +68,22 @@ public:
     void SetPredefinedColors(const ColorVector& colors);
     ColorVector GetPredefinedColors() const {return light_.GetPredefinedColors();}
 
-
     ws2811_return_t Clear();
     ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
     ws2811_return_t Render(ws2811_led_t color);
 
+    void SetBrightness(uint8_t brightness);
+    uint8_t GetBrightness() const;
+
+    void SendPowerStatus() const;
+
 private:
-    static constexpr int TARGET_FREQ = WS2811_TARGET_FREQ;
-    static constexpr int GPIO_PIN = 18;
-    static constexpr int DMA = 10;
-    static constexpr int STRIP_TYPE = SK6812_STRIP_GRBW;  // SK6812RGBW (NOT SK6812RGB)
-    static constexpr int LED_COUNT = 300;
-    static constexpr auto UPDATE_PERIOD = std::chrono::milliseconds(5000);
-    static constexpr uint16_t PORT = 7755;
+    static constexpr int kTargetFreq = WS2811_TARGET_FREQ;
+    static constexpr int kGpioPin = 18;
+    static constexpr int kDma = 10;
+    static constexpr int kStripeType = SK6812_STRIP_GRBW;  // SK6812RGBW (NOT SK6812RGB)
+    static constexpr int kLedCount = 300;
+    static constexpr uint16_t kPort = 7755;
 
     ws2811_t ledstring_;
 
@@ -106,6 +113,7 @@ private:
     Alarm alarm_ {io_, *this};
     Light light_ {io_, *this};
     Animation animation_ {io_, *this};
+    Fadeout fadeout_{io_, *this};
 };
 
 #endif // SRC_CONTROLER_HPP

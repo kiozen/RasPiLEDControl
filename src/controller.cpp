@@ -49,13 +49,13 @@ Controller::Controller() : Log("ctrl")
 
 
     memset(&ledstring_, 0, sizeof (ledstring_));
-    ledstring_.freq = TARGET_FREQ;
-    ledstring_.dmanum = DMA;
-    ledstring_.channel[0].gpionum = GPIO_PIN;
-    ledstring_.channel[0].count = LED_COUNT;
+    ledstring_.freq = kTargetFreq;
+    ledstring_.dmanum = kDma;
+    ledstring_.channel[0].gpionum = kGpioPin;
+    ledstring_.channel[0].count = kLedCount;
     ledstring_.channel[0].invert = 0;
     ledstring_.channel[0].brightness = 100;
-    ledstring_.channel[0].strip_type = STRIP_TYPE;
+    ledstring_.channel[0].strip_type = kStripeType;
 
     try
     {
@@ -67,8 +67,9 @@ Controller::Controller() : Log("ctrl")
         file >> cfg;
 
         name_ = cfg.value("name", "");
-        ledstring_.channel[0].count = cfg.value("led_count", LED_COUNT);
+        ledstring_.channel[0].count = cfg.value("led_count", kLedCount);
         ledstring_.channel[0].brightness = cfg.value("max_brightness", 100);
+        fadeout_.SetNormalBrightness(ledstring_.channel[0].brightness);
     }
     catch(const nlohmann::json::exception& e)
     {
@@ -173,7 +174,7 @@ bool Controller::SetupUdp()
     udp_socket_.open(asio::ip::udp::v4());
     asio::socket_base::broadcast option(true);
     udp_socket_.set_option(option);
-    udp_socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v4::any(), PORT ));
+    udp_socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v4::any(), kPort ));
 
 
     struct ifreq s;
@@ -324,9 +325,15 @@ void Controller::SetAnimation(const std::string& hash)
 
 void Controller::SetPowerLight(bool on)
 {
-    light_.SetPower(on);
-    session_->sendPowerStatus();
-    SaveState();
+    if(on != light_.GetPower())
+    {
+        I(fmt::format("SetPowerLight {}", on));
+        fadeout_.Stop();
+        light_.SetPower(on);
+        SaveState();
+    }
+
+    SendPowerStatus();
 }
 
 bool Controller::GetPowerLight() const
@@ -342,14 +349,25 @@ void Controller::SetPredefinedColors(const ColorVector& colors)
 
 void Controller::SetPowerAnimation(bool on)
 {
-    animation_.SetPower(on);
-    session_->sendPowerStatus();
-    SaveState();
+    if(on != animation_.GetPower())
+    {
+        I(fmt::format("SetPowerAnimation {}", on));
+        fadeout_.Stop();
+        animation_.SetPower(on);
+        SaveState();
+    }
+
+    SendPowerStatus();
 }
 
 bool Controller::GetPowerAnimation() const
 {
     return animation_.GetPower();
+}
+
+void Controller::SetPowerTimeout(const std::string& target, std::chrono::minutes minutes)
+{
+    fadeout_.SetTimeout(target, minutes);
 }
 
 std::tuple<std::string, int, uint8_t> Controller::GetSystemConfig() const
@@ -375,6 +393,7 @@ void Controller::SetSystemConfig(const std::string& name, int led_count, uint8_t
         return;
     }
 
+    fadeout_.SetNormalBrightness(max_brightness);
     light_.SetColor();
 
     nlohmann::json cfg;
@@ -390,4 +409,27 @@ void Controller::SetSystemConfig(const std::string& name, int led_count, uint8_t
     file.flush();
 }
 
+void Controller::SetBrightness(uint8_t brightness)
+{
+    ledstring_.channel[0].brightness = brightness;
+    I(fmt::format("Set brightness to {}", ledstring_.channel[0].brightness));
+    ws2811_return_t ret = WS2811_SUCCESS;
+    if ((ret = ws2811_init(&ledstring_)) != WS2811_SUCCESS)
+    {
+        E(fmt::format("ws2811_init failed: {} ({})", ws2811_get_return_t_str(ret), ret));
+    }
+    light_.SetColor();
+}
 
+uint8_t Controller::GetBrightness() const
+{
+    return ledstring_.channel[0].brightness;
+}
+
+void Controller::SendPowerStatus() const
+{
+    if(session_ != nullptr)
+    {
+        session_->SendPowerStatus();
+    }
+}
