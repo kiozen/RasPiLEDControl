@@ -18,37 +18,47 @@
 #ifndef SRC_POWER_HPP
 #define SRC_POWER_HPP
 
-#include <vector>
+#include <array>
+#include <sigslot/signal.hpp>
+#include <ws2811/ws2811.h>
 
-class Controller;
+#include "i_module.hpp"
+#include "log.hpp"
 
-class Power
-{
-protected:
-    enum class module_e
-    {
-        light,
-        animation,
-        none
-    };
+class WS2811Control;
 
+class Power : public Log, public IModule {
 public:
-    Power(module_e module, Controller& controller);
-    virtual ~Power();
+  Power(const std::string &config_path, WS2811Control &ws2811_control);
+  virtual ~Power();
 
-    void SetPower(bool on);
-    bool GetPower() const;
+  enum channel_e : int { kLight, kAnimation, kMaxChannel, kNone = -1 };
 
-protected:
-    virtual bool SwitchOn() = 0;
-    virtual void SwitchOff() = 0;
+  bool GetChannelState(channel_e channel) const { return channels_[channel].active; }
+  static std::vector<channel_e> GetAvailableChannels() { return {kLight, kAnimation}; }
+
+  void SetChannelState(channel_e channel, bool on);
+  void SetChannelFrame(channel_e channel, const std::vector<ws2811_led_t> &frame);
+  void SetChannelFrame(channel_e channel, const ws2811_led_t &color);
+
+  sigslot::signal_st<> SigPowerStatusChanged;
 
 private:
-    Controller& controller_;
+  static constexpr const char *kConfigFile = "power.json";
+  static const std::vector<ws2811_led_t> kBlackFrame;
+  const std::string config_path_;
 
-    const module_e module_;
-    static module_e active_module_;
-    static std::vector<Power*> modules_;
+  void SaveState() override;
+
+  WS2811Control &ws2811_control_;
+  struct channel_t {
+    channel_t(channel_e id) : id(id) {}
+    const channel_e id;
+    bool active{false};
+    std::vector<ws2811_led_t> frame{kBlackFrame};
+  };
+
+  std::array<channel_t, kMaxChannel> channels_{channel_t(kLight), channel_t(kAnimation)};
 };
 
 #endif // SRC_POWER_HPP

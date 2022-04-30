@@ -16,6 +16,7 @@ https://github.com/kiozen/LEDAmbiente
 * FMT (> 8.0.0)- https://fmt.dev/latest/index.html
 * WS281x - https://github.com/jgarff/rpi_ws281x
 * nlohmann (>3.9) JSON - https://github.com/nlohmann/json
+* sigslot (v1.2.0) - https://github.com/palacaze/sigslot
 * libcrypt
 
 ## Build System
@@ -66,6 +67,12 @@ cd ..
 git clone https://github.com/nlohmann/json.git
 mkdir build_json
 cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_TESTING=OFF -DJSON_BuildTests=OFF ../json
+sudo make install
+cd ..
+
+git clone https://github.com/palacaze/sigslot.git
+mkdir build_sigslot
+cmake -DCMAKE_INSTALL_PREFIX=/usr -DSIGSLOT_COMPILE_EXAMPLES=OFF -DSIGSLOT_COMPILE_TESTS=OFF  ../sigslot
 sudo make install
 cd ../../
 

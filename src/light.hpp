@@ -18,46 +18,35 @@
 #ifndef SRC_LIGHT_HPP
 #define SRC_LIGHT_HPP
 
-#include <asio.hpp>
-#include <nlohmann/json.hpp>
-#include <tuple>
 #include <vector>
 #include <ws2811/ws2811.h>
 
 #include "log.hpp"
-#include "power.hpp"
-
-class Controller;
+#include "i_module.hpp"
 
 using ColorVector = std::vector<ws2811_led_t>;
+class Power;
 
-class Light : public Power, public Log
-{
+class Light : public Log, public IModule {
 public:
-    Light(asio::io_context& io, Controller& parent);
-    virtual ~Light();
+  Light(const std::string &config_path, Power &power);
+  virtual ~Light();
 
-    void RestoreState(const nlohmann::json& cfg);
-    nlohmann::json SaveState() const;
+  void SetColor(uint8_t red, uint8_t green, uint8_t blue);
+  std::tuple<uint8_t, uint8_t, uint8_t> GetColor() const;
 
-    void SetColor();
-    void SetColor(ws2811_led_t color);
-    ws2811_led_t GetColor() const {return color_;}
-
-    void SetPredefinedColors(const ColorVector& colors){predefined_colors_ = colors;}
-    ColorVector GetPredefinedColors() const {return predefined_colors_;}
-
-protected:
-    bool SwitchOn() override;
-    void SwitchOff() override;
+  void SetPredefinedColors(const ColorVector &colors);
+  ColorVector GetPredefinedColors() const { return predefined_colors_; }
 
 private:
-    asio::io_context& io_;
-    Controller& controller_;
+  static constexpr const char *kConfigFile = "light.json";
+  const std::string config_path_;
 
-    ws2811_led_t color_ {0};
+  void SaveState() override;
 
-    ColorVector predefined_colors_;
+  Power &power_;
+  ws2811_led_t color_{0};
+  ColorVector predefined_colors_;
 };
 
 #endif // SRC_LIGHT_HPP

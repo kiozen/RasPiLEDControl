@@ -18,102 +18,69 @@
 #ifndef SRC_CONTROLER_HPP
 #define SRC_CONTROLER_HPP
 
-#include <array>
 #include <asio.hpp>
-#include <memory>
-#include <tuple>
-#include <vector>
-#include <ws2811/ws2811.h>
 
 #include "alarm.hpp"
 #include "animation.hpp"
 #include "fadeout.hpp"
+#include "i_module.hpp"
 #include "light.hpp"
 #include "log.hpp"
+#include "power.hpp"
+#include "ws2811_control.hpp"
 
-class Controller : public Log
-{
+class Controller : public Log, public IModule {
 public:
-    Controller();
-    virtual ~Controller();
+  Controller();
+  virtual ~Controller();
 
-    int exec();
+  int Exec();
+  bool StartServer();
+  void SetName(const std::string &name);
+  const std::string &GetName() const { return name_; }
 
-    bool StartServer();
-
-    std::string getName() const {return name_;}
-
-    void SetPowerLight(bool on);
-    bool GetPowerLight() const;
-
-    void SetPowerAnimation(bool on);
-    bool GetPowerAnimation() const;
-
-    void SetPowerTimeout(const std::string& target, std::chrono::minutes minutes);
-    bool GetPowerTimeout() const {return fadeout_.GetTimeout();}
-
-    void SetAlarm(const Alarm::alarm_t& alarm);
-    Alarm::alarm_t GetAlarm() const {return alarm_.GetAlarm();}
-
-    void SetColorRgb(uint8_t red, uint8_t green, uint8_t blue);
-    std::tuple<uint8_t, uint8_t, uint8_t> GetColorRgb() const;
-
-    nlohmann::json GetAnimationInfo() const {return animation_.GetAnimationInfo();}
-    void SetAnimation(const std::string& hash);
-    std::string GetAnimation() const {return animation_.GetAnimation();}
-
-    std::tuple<std::string, int, uint8_t> GetSystemConfig() const;
-    void SetSystemConfig(const std::string& name, int led_count, uint8_t max_brightness);
-
-    void SetPredefinedColors(const ColorVector& colors);
-    ColorVector GetPredefinedColors() const {return light_.GetPredefinedColors();}
-
-    ws2811_return_t Clear();
-    ws2811_return_t Render(const std::vector<ws2811_led_t>& matrix);
-    ws2811_return_t Render(ws2811_led_t color);
-
-    void SetBrightness(uint8_t brightness);
-    uint8_t GetBrightness() const;
-
-    void SendPowerStatus() const;
+  WS2811Control &GetWS2811Control() { return ws2811_control_; }
+  Power &GetPower() { return power_; }
+  Light &GetLight() { return light_; }
+  Animation &GetAnimation() { return animation_; }
+  Alarm &GetAlarm() { return alarm_; }
+  Fadeout &GetFadeout() { return fadeout_; }
 
 private:
-    static constexpr int kTargetFreq = WS2811_TARGET_FREQ;
-    static constexpr int kGpioPin = 18;
-    static constexpr int kDma = 10;
-    static constexpr int kStripeType = SK6812_STRIP_GRBW;  // SK6812RGBW (NOT SK6812RGB)
-    static constexpr int kLedCount = 300;
-    static constexpr uint16_t kPort = 7755;
+  static constexpr uint16_t kPort = 7755;
+  static constexpr const char *kConfigPath = "/home/pi/.config/led_control/";
+  static constexpr const char *kConfigFile = "controller.json";
 
-    ws2811_t ledstring_;
+  void OnSignal(const asio::error_code &error, int signal_number);
+  void OnReceiveUdp(const asio::error_code &error, std::size_t size);
+  void OnPowerStatusChanged();
 
-    void OnSignal(const asio::error_code& error, int signal_number);
-    void OnReceiveUdp(const asio::error_code& error, std::size_t size);
-    bool SetupUdp();
+  bool SetupUdp();
+  void SaveState() override;
 
-    void SetColor(uint32_t color);
+  std::atomic_bool is_alive_{true};
 
-    void SaveState();
-    void RestoreState();
+  asio::io_context io_;
+  asio::signal_set sig_ = {io_, SIGINT, SIGTERM};
 
-    asio::io_context io_;
-    asio::signal_set sig_ = {io_, SIGINT, SIGTERM};
+  asio::ip::udp::socket udp_socket_{io_};
+  asio::ip::udp::endpoint remote_endpoint_;
+  std::array<int8_t, 1024> recv_buffer_;
 
-    asio::ip::udp::socket udp_socket_ {io_};
-    asio::ip::udp::endpoint remote_endpoint_;
-    std::array<int8_t, 1024> recv_buffer_;
+  asio::ip::tcp::endpoint endpoint_{asio::ip::tcp::v4(), 7756};
+  asio::ip::tcp::acceptor acceptor_{io_, endpoint_};
+  std::unique_ptr<class Session> session_;
 
-    asio::ip::tcp::endpoint endpoint_ {asio::ip::tcp::v4(), 7756};
-    asio::ip::tcp::acceptor acceptor_ {io_, endpoint_};
-    std::unique_ptr<class Session> session_;
+  std::string name_;
+  std::string mac_;
 
-    std::string name_;
-    std::string mac_;
+  WS2811Control ws2811_control_{kConfigPath};
+  Power power_{kConfigPath, ws2811_control_};
+  Fadeout fadeout_{io_, power_, ws2811_control_};
 
-    Alarm alarm_ {io_, *this};
-    Light light_ {io_, *this};
-    Animation animation_ {io_, *this};
-    Fadeout fadeout_{io_, *this};
+  Light light_{kConfigPath, power_};
+  Animation animation_{io_, power_};
+  Alarm alarm_{kConfigPath, io_, power_, animation_};
 };
 
 #endif // SRC_CONTROLER_HPP

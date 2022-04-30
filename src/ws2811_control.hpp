@@ -15,51 +15,45 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **********************************************************************************************/
-#ifndef SRC_ALARM_HPP
-#define SRC_ALARM_HPP
+#ifndef SRC_WS2811_CONTROL_HPP
+#define SRC_WS2811_CONTROL_HPP
 
-#include <asio.hpp>
-#include <set>
+#include <vector>
+#include <ws2811/ws2811.h>
 
 #include "i_module.hpp"
 #include "log.hpp"
 
-class Power;
-class Animation;
-
-class Alarm : public Log, public IModule {
+class WS2811Control : public Log, public IModule {
 public:
-  Alarm(const std::string &config_path, asio::io_context &io, Power &power, Animation &animation);
-  virtual ~Alarm();
+  static constexpr int kLedCount = 300;
+  WS2811Control(const std::string &config_path);
+  virtual ~WS2811Control();
 
-  struct alarm_t {
-    std::string name;
-    bool active{false};
-    int32_t hour{-1};
-    int32_t minute{-1};
-    std::set<int> days;
-    std::string animation_hash;
-  };
+  uint8_t GetMaxBrightness() const;
+  int GetLedCount() const;
 
-  void SetAlarm(const alarm_t &alarm);
+  void SetParameters(int led_count, uint8_t brightness);
 
-  alarm_t GetAlarm() const { return alarm_; }
-
-  void Stop();
+  bool SetFrame(const std::vector<ws2811_led_t> &frame);
+  void SetBrightness(float brightness);
 
 private:
-  static constexpr const char *kConfigFile = "alarm.json";
+  static constexpr int kTargetFreq = WS2811_TARGET_FREQ;
+  static constexpr int kGpioPin = 18;
+  static constexpr int kDma = 10;
+  static constexpr int kStripeType = SK6812_STRIP_GRBW; // SK6812RGBW (NOT SK6812RGB)
+  static constexpr const char *kConfigFile = "ws2811.json";
+
   void SaveState() override;
-  void OnTimeout(const asio::error_code &error);
+  bool WriteHardwareInit();
 
   const std::string config_path_;
-  asio::steady_timer timer_;
-  Power &power_;
-  Animation &animation_;
+  ws2811_t ledstring_;
 
-  alarm_t alarm_;
-
-  std::atomic_bool is_alive_{true};
+  uint8_t max_brightness_{255};
+  float brightness_{1.0};
+  std::vector<ws2811_led_t> current_frame_;
 };
 
-#endif // SRC_ALARM_HPP
+#endif // SRC_WS2811_CONTROL_HPP

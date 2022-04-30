@@ -20,61 +20,53 @@
 
 #include <asio.hpp>
 #include <filesystem>
-#include <map>
 #include <nlohmann/json.hpp>
-#include <string>
+#include <tuple>
 #include <ws2811/ws2811.h>
 
 #include "log.hpp"
-#include "power.hpp"
 
-class Controller;
+class Power;
 
-class Animation : public Power, public Log
-{
+class Animation : public Log {
 public:
-    Animation(asio::io_context& io, Controller& parent);
-    virtual ~Animation();
+  Animation(asio::io_context &io, Power &power);
+  virtual ~Animation();
 
-    nlohmann::json GetAnimationInfo() const;
+  nlohmann::json GetAnimationInfo() const;
 
-    void SetAnimation(const std::string& hash);
-    std::string GetAnimation() const {return hash_;}
+  void SetAnimation(const std::string &hash);
+  std::string GetAnimation() const { return hash_; }
 
-protected:
-    bool SwitchOn() override;
-    void SwitchOff() override;
+  void Play(bool on);
 
 private:
-    void LoadAnimation(const std::string& filename);
-    void OnAnimate(const asio::error_code& error);
+  void LoadAnimation(const std::string &filename);
+  void OnAnimate(const asio::error_code &error);
+  void OnPowerStatusChanged();
 
-    enum class mode_e
-    {
-        single,
-        cyclic
-    };
+  enum class mode_e { single, cyclic };
+  static constexpr const char *kAnimationPath = "/home/pi";
 
+  asio::steady_timer timer_;
+  Power &power_;
 
-    Controller& controller_;
+  std::string hash_;
+  using animation_step_t = std::tuple<int, std::vector<ws2811_led_t>>;
+  using animation_t = std::vector<animation_step_t>;
+  animation_t animation_;
+  int index_{0};
+  mode_e mode_{mode_e::single};
+  bool active_{false};
 
-    using animation_step_t = std::tuple<int, std::vector<ws2811_led_t> >;
-    using animation_t = std::vector<animation_step_t >;
-    animation_t animation_;
-    int index_ {0};
-    std::string hash_;
-    mode_e mode_ {mode_e::single};
+  struct info_t {
+    mode_e mode{mode_e::single};
+    std::string name;
+    std::string desc;
+    std::filesystem::path path;
+  };
 
-    asio::steady_timer timer_;
-    struct info_t
-    {
-        mode_e mode {mode_e::single};
-        std::string name;
-        std::string desc;
-        std::filesystem::path path;
-    };
-
-    std::map<std::string, info_t> animations_;
+  std::map<std::string, info_t> animations_;
 };
 
 #endif // SRC_ANIMATION_HPP

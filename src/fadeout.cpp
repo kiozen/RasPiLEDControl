@@ -15,107 +15,92 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **********************************************************************************************/
+
 #include "fadeout.hpp"
 
 #include <fmt/format.h>
 
-#include "controller.hpp"
+#include "ws2811_control.hpp"
 
-
-Fadeout::Fadeout(asio::io_context& io, Controller& parent)
-    : Log("timeout")
-    , io_(io)
-    , controller_(parent)
-{
+Fadeout::Fadeout(asio::io_context &io, Power &power, WS2811Control &ws2811_control)
+    : Log("fadeout"), power_(power), ws2811_control_(ws2811_control), timeout_power_(io),
+      timer_fade_out_(io) {
+  power_.SigPowerStatusChanged.connect(&Fadeout::OnPowerStatusChanged, this);
 }
 
-Fadeout::~Fadeout()
-{
+Fadeout::~Fadeout() {}
+
+void Fadeout::Stop() {
+  std::size_t n = 0;
+  n += timeout_power_.cancel();
+  n += timer_fade_out_.cancel();
+  if (n != 0) {
+    I("StopPowerTimeout");
+    target_ = Power::kNone;
+  }
 }
 
-void Fadeout::SetNormalBrightness(uint8_t brightness)
-{
-    I(fmt::format("Set normal brightness to {}", brightness));
-    normal_brightness_ = brightness;
+void Fadeout::OnPowerStatusChanged() {
+  I("OnPowerStatusChanged");
+  for (Power::channel_e channel : Power::GetAvailableChannels()) {
+    if (power_.GetChannelState(channel) == false && target_ == channel) {
+      Stop();
+    }
+  }
 }
 
-void Fadeout::Stop()
-{
-    std::size_t n = 0;
-    n += timeout_power_.cancel();
-    n += timer_fade_out_.cancel();
-    if(n != 0)
-    {
-        I("StopPowerTimeout");
-        timeout_active_ = false;
+void Fadeout::SetTimeout(const std::string &target, std::chrono::minutes minutes) {
+  I("SetPowerTimeout");
+  Stop();
+
+  target_ = Power::kNone;
+  if (target == "animation") {
+    target_ = Power::kAnimation;
+  } else if (target == "light") {
+    target_ = Power::kLight;
+  } else {
+    return;
+  }
+
+  if (power_.GetChannelState(target_) == false) {
+    power_.SetChannelState(target_, true);
+  } else {
+    power_.SigPowerStatusChanged();
+  }
+
+  timeout_power_.expires_after(minutes - kFadeoutSteps * kFadeoutInterval);
+  timeout_power_.async_wait([this](const asio::error_code &error) {
+    I(fmt::format("PowerTimeout {} {}", error.message(), error.value()));
+    if (!error) {
+      OnStartFadeOut();
     }
-    controller_.SetBrightness(normal_brightness_);
+  });
 }
 
-void Fadeout::SetTimeout(const std::string& target, std::chrono::minutes minutes)
-{
-    I("SetPowerTimeout");
-    Stop();
+void Fadeout::OnStartFadeOut() {
+  I("OnStartFadeOut");
+  uint8_t count = 1;
 
-    if(target == "animation")
-    {
-        controller_.SetPowerAnimation(true);
-    }
-    else if(target == "light")
-    {
-        controller_.SetPowerLight(true);
-    }
-    else
-    {
-        return;
-    }
-
-    timeout_active_ = true;
-    timeout_power_.expires_after(minutes - kFadeoutSteps * kFadeoutInterval);
-    timeout_power_.async_wait([this](const asio::error_code& error){
-        I(fmt::format("PowerTimeout {} {}", error.message(), error.value()));
-        if(!error)
-        {
-            StartFadeOut();
-        }
-    });
-
-    controller_.SendPowerStatus();
+  timer_fade_out_.expires_after(kFadeoutInterval);
+  timer_fade_out_.async_wait(
+      [this, count](const asio::error_code &error) { OnFadeOut(count, error); });
 }
 
-void Fadeout::StartFadeOut()
-{
-    I("StartFadeOut");
-    uint8_t count = 1;
+void Fadeout::OnFadeOut(uint8_t count, const asio::error_code &error) {
+  if (!error) {
+    float brightness = 1.0 - count++ / float(kFadeoutSteps);
+    if (brightness > 0) {
+      ws2811_control_.SetBrightness(brightness);
 
-    timer_fade_out_.expires_after(kFadeoutInterval);
-    timer_fade_out_.async_wait([this, count](const asio::error_code& error){
-        FadeOut(count, error);
-    });
-}
-
-void Fadeout::FadeOut(uint8_t count, const asio::error_code& error)
-{
-    if(!error)
-    {
-        uint8_t new_brightness = round((1.0 - count++ / float(kFadeoutSteps)) * normal_brightness_);
-        if(new_brightness > 0)
-        {
-            controller_.SetBrightness(new_brightness);
-            timer_fade_out_.expires_after(kFadeoutInterval);
-            timer_fade_out_.async_wait([this, count](const asio::error_code& error){
-                FadeOut(count, error);
-            });
-        }
-        else
-        {
-            timeout_active_ = false;
-            controller_.SetPowerAnimation(false);
-            controller_.SetPowerLight(false);
-        }
+      timer_fade_out_.expires_at(timer_fade_out_.expiry() + kFadeoutInterval);
+      timer_fade_out_.async_wait(
+          [this, count](const asio::error_code &error) { OnFadeOut(count, error); });
+    } else {
+      Power::channel_e channel = target_;
+      target_ = Power::kNone; // must be set before calling SetChannelState()
+      power_.SetChannelState(channel, false);
     }
-    else
-    {
-        timeout_active_ = false;
-    }
+  } else {
+    target_ = Power::kNone;
+  }
 }
