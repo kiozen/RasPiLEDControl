@@ -8,7 +8,7 @@ def colorFader(c1,c2,mix=0): #fade (linear interpolate) from color c1 (at mix=0)
     c2=np.array(mpl.colors.to_rgb(c2))
     return mpl.colors.to_rgb((1-mix)*c1 + mix*c2)
 
-NUM_LED = 300
+NUM_LED = 195
 
 j = {"data" : [], "name": "Magic Sunrise", "description" : "Start your morning with a beautiful artificial sunrise while the rest of the world is still in the dark."}
 

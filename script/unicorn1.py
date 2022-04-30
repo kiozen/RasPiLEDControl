@@ -7,9 +7,9 @@ def Color(red, green, blue):
 def rotate(l, n):
     return l[-n:] + l[:-n]
 
-j = {"data" : [], "mode": "cyclic", "name": "Unicorn", "description" : "The tiny little unicorn pukes a fantastic revolving rainbow for you."}
+j = {"data" : [], "mode": "cyclic", "name": "Unicorn1", "description" : "The tiny little unicorn pukes a fantastic revolving rainbow for you."}
 
-NUM_LED = 300
+NUM_LED = 195
 FRAME_TIME = 100
 
 colors = [0]*NUM_LED
@@ -24,5 +24,5 @@ for i in range(NUM_LED):
     j["data"].append([FRAME_TIME, colors])
 
 
-with open("unicorn.json", "w") as fid:
+with open("unicorn1.json", "w") as fid:
     fid.write(json.dumps(j))
