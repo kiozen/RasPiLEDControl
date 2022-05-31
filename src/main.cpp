@@ -18,9 +18,8 @@
 
 #include "controller.hpp"
 
-int main(int argc, char** argv)
-{
-    Controller controller;
+int main(int argc, char **argv) {
+  Controller controller;
 
-    return controller.exec();
+  return controller.Exec();
 }

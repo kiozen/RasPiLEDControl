@@ -15,51 +15,24 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **********************************************************************************************/
-#ifndef SRC_ALARM_HPP
-#define SRC_ALARM_HPP
+#ifndef SRC_I_MODULE_HPP
+#define SRC_I_MODULE_HPP
 
-#include <asio.hpp>
-#include <set>
+#include <nlohmann/json.hpp>
+#include <string>
 
-#include "i_module.hpp"
-#include "log.hpp"
-
-class Power;
-class Animation;
-
-class Alarm : public Log, public IModule {
+class IModule {
 public:
-  Alarm(const std::string &config_path, asio::io_context &io, Power &power, Animation &animation);
-  virtual ~Alarm();
+  IModule() = default;
+  virtual ~IModule() = default;
 
-  struct alarm_t {
-    std::string name;
-    bool active{false};
-    int32_t hour{-1};
-    int32_t minute{-1};
-    std::set<int> days;
-    std::string animation_hash;
-  };
+  virtual void SaveState() = 0;
 
-  void SetAlarm(const alarm_t &alarm);
+protected:
+  void SaveState(const std::string &path, const std::string &filename, const nlohmann::json &json);
+  nlohmann::json LoadState(const std::string &path, const std::string &filename);
 
-  alarm_t GetAlarm() const { return alarm_; }
-
-  void Stop();
-
-private:
-  static constexpr const char *kConfigFile = "alarm.json";
-  void SaveState() override;
-  void OnTimeout(const asio::error_code &error);
-
-  const std::string config_path_;
-  asio::steady_timer timer_;
-  Power &power_;
-  Animation &animation_;
-
-  alarm_t alarm_;
-
-  std::atomic_bool is_alive_{true};
+  bool restore_state_active_{false};
 };
 
-#endif // SRC_ALARM_HPP
+#endif // SRC_I_MODULE_HPP

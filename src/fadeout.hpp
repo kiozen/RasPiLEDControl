@@ -15,45 +15,42 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **********************************************************************************************/
-#ifndef SRC_TIMEOUT_HPP
-#define SRC_TIMEOUT_HPP
+#ifndef SRC_FADEOUT_HPP
+#define SRC_FADEOUT_HPP
 
 #include <asio.hpp>
 
 #include "log.hpp"
+#include "power.hpp"
 
-class Controller;
+class Power;
+class WS2811Control;
 
-class Fadeout : public Log
-{
+class Fadeout : public Log {
 public:
-    Fadeout(asio::io_context& io, Controller& parent);
-    ~Fadeout();
+  Fadeout(asio::io_context &io, Power &power, WS2811Control &ws2811_control);
+  ~Fadeout();
 
-    void SetTimeout(const std::string& target, std::chrono::minutes minutes);
-    bool GetTimeout() const {return timeout_active_;}
+  void SetTimeout(const std::string &target, std::chrono::minutes minutes);
+  bool GetTimeoutActive() const { return target_ != Power::kNone; }
 
-    void Stop();
-
-    void SetNormalBrightness(uint8_t brightness);
+  void Stop();
 
 private:
-    static constexpr auto kFadeoutInterval = std::chrono::seconds(1);
-    static constexpr auto kFadeoutSteps = 100;
+  static constexpr auto kFadeoutInterval = std::chrono::seconds(1);
+  static constexpr auto kFadeoutSteps = 100;
 
+  void OnStartFadeOut();
+  void OnFadeOut(uint8_t count, const asio::error_code &error);
+  void OnPowerStatusChanged();
 
-    void StartFadeOut();
-    void FadeOut(uint8_t count, const asio::error_code& error);
+  Power &power_;
+  WS2811Control &ws2811_control_;
 
-    asio::io_context& io_;
-    Controller& controller_;
+  asio::steady_timer timeout_power_;
+  asio::steady_timer timer_fade_out_;
 
-    asio::steady_timer timeout_power_{io_};
-    asio::steady_timer timer_fade_out_{io_};
-    bool timeout_active_{false};
-
-    uint8_t normal_brightness_{0};
+  Power::channel_e target_{Power::kNone};
 };
 
-
-#endif // SRC_TIMEOUT_HPP
+#endif // SRC_FADEOUT_HPP

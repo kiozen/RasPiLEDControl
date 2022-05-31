@@ -18,75 +18,46 @@
 #include "light.hpp"
 
 #include <fmt/format.h>
+#include <nlohmann/json.hpp>
 
-#include "controller.hpp"
+#include "power.hpp"
 
+Light::Light(const std::string &config_path, Power &power)
+    : Log("light"), power_(power), config_path_(config_path) {
+  restore_state_active_ = true;
+  try {
+    const nlohmann::json &cfg = LoadState(config_path_, kConfigFile);
 
-Light::Light(asio::io_context& io, Controller& parent)
-    : Power(module_e::light, parent)
-    , Log("light")
-    , io_(io)
-    , controller_(parent)
-{
+    ws2811_led_t color = cfg.value("color", 0);
+    SetColor(color >> 16 & 0xff, color >> 8 & 0x0FF, color & 0x0FF);
+    SetPredefinedColors(cfg.value("predefined_colors", ColorVector()));
+  } catch (const nlohmann::json::exception &e) {
+    E(fmt::format("Parsing system config failed: {}", e.what()));
+  }
+  restore_state_active_ = false;
 }
 
-Light::~Light()
-{
+Light::~Light() {}
+
+void Light::SaveState() {
+  nlohmann::json cfg;
+  cfg["color"] = color_;
+  cfg["predefined_colors"] = predefined_colors_;
+
+  IModule::SaveState(config_path_, kConfigFile, cfg);
 }
 
-void Light::RestoreState(const nlohmann::json& cfg)
-{
-    try
-    {
-        color_ = cfg.value("color", 0);
-        predefined_colors_ = cfg.value("predefined_colors", ColorVector());
-        I("Restored light");
-    }
-    catch(const nlohmann::json::exception& e)
-    {
-        E(fmt::format("Parsing config failed: {}", e.what()));
-    }
+std::tuple<uint8_t, uint8_t, uint8_t> Light::GetColor() const {
+  return {color_ >> 16 & 0xff, color_ >> 8 & 0x0FF, color_ & 0x0FF};
 }
 
-nlohmann::json Light::SaveState() const
-{
-    nlohmann::json cfg;
-    cfg["color"] = color_;
-    cfg["power"] = GetPower();
-    cfg["predefined_colors"] = predefined_colors_;
-    return cfg;
+void Light::SetColor(uint8_t red, uint8_t green, uint8_t blue) {
+  color_ = (red << 16 | green << 8 | blue);
+  power_.SetChannelFrame(Power::kLight, color_);
+  SaveState();
 }
 
-void Light::SetColor()
-{
-    if(GetPower())
-    {
-        SwitchOn();
-    }
-}
-
-void Light::SetColor(ws2811_led_t color)
-{
-    color_ = color;
-    if(GetPower())
-    {
-        SwitchOn();
-    }
-}
-
-bool Light::SwitchOn()
-{
-    if(!GetPower())
-    {
-        I("Power on");
-    }
-    return controller_.Render(color_) == WS2811_SUCCESS;
-}
-
-void Light::SwitchOff()
-{
-    if(GetPower())
-    {
-        I("Power off");
-    }
+void Light::SetPredefinedColors(const ColorVector &colors) {
+  predefined_colors_ = colors;
+  SaveState();
 }

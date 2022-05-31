@@ -2,36 +2,37 @@ find_package(ASIO REQUIRED)
 find_package(WS2811 REQUIRED)
 find_package(FMT REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(PalSigslot REQUIRED)
 
 
 STRING(TOLOWER ${PROJECT_NAME} APPLICATION_NAME)
 
 set(SRC
-    main.cpp
-    log.cpp
-    controller.cpp
-    session.cpp
-    light.cpp
     alarm.cpp
-    animation.cpp
-    power.cpp
-    fadeout.cpp
-)
-
-set(HDR
-    log.hpp
-    controller.hpp
-    session.hpp
-    light.hpp
     alarm.hpp
+    animation.cpp
     animation.hpp
-    power.hpp
+    controller.cpp
+    controller.hpp
+    fadeout.cpp
     fadeout.hpp
+    i_module.cpp
+    i_module.hpp
+    light.cpp
+    light.hpp
+    log.cpp
+    log.hpp
+    main.cpp
+    power.cpp
+    power.hpp
+    session.cpp
+    session.hpp
+    ws2811_control.cpp
+    ws2811_control.hpp
 )
 
 set(PROJECT_SOURCES
     ${SRC}
-    ${HDR}
 )
 
 add_executable(${APPLICATION_NAME}
@@ -50,6 +51,7 @@ target_link_libraries(${APPLICATION_NAME}
     ASIO::ASIO
     WS2811::WS2811
     fmt::fmt
-    stdc++fs
     OpenSSL::Crypto
+    Pal::Sigslot
+    stdc++fs
 )

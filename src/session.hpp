@@ -25,27 +25,28 @@
 
 class Controller;
 
-class Session : public Log
-{
+class Session : public Log {
 public:
-    Session(asio::io_context& io, Controller& parent);
-    virtual ~Session();
+  Session(asio::io_context &io, Controller &controller);
+  virtual ~Session();
 
-    asio::ip::tcp::socket& Socket(){return socket_;}
+  asio::ip::tcp::socket &Socket() { return socket_; }
+  void Exec();
+  void Stop();
 
-    void Exec();
-
-    void SendPowerStatus();
+  void SendPowerStatus();
 
 private:
-    void OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const asio::error_code& error, std::size_t size);
-    void sendJson(const nlohmann::json& msg);
+  void OnMessageReceived(std::shared_ptr<asio::streambuf> buffer, const asio::error_code &error,
+                         std::size_t size);
+  void sendJson(const nlohmann::json &msg);
 
+  std::atomic_bool is_alive_{true};
 
-    asio::ip::tcp::socket socket_;
-    asio::steady_timer timer_;
+  asio::ip::tcp::socket socket_;
+  asio::steady_timer timer_;
 
-    Controller& controller_;
+  Controller &controller_;
 };
 
 #endif // SRC_SESSION_HPP

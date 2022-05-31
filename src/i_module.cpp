@@ -15,51 +15,32 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **********************************************************************************************/
-#ifndef SRC_ALARM_HPP
-#define SRC_ALARM_HPP
-
-#include <asio.hpp>
-#include <set>
-
 #include "i_module.hpp"
-#include "log.hpp"
 
-class Power;
-class Animation;
+#include <filesystem>
+#include <fstream>
 
-class Alarm : public Log, public IModule {
-public:
-  Alarm(const std::string &config_path, asio::io_context &io, Power &power, Animation &animation);
-  virtual ~Alarm();
+void IModule::SaveState(const std::string &path, const std::string &filename,
+                       const nlohmann::json &json) {
 
-  struct alarm_t {
-    std::string name;
-    bool active{false};
-    int32_t hour{-1};
-    int32_t minute{-1};
-    std::set<int> days;
-    std::string animation_hash;
-  };
+  if (restore_state_active_) {
+    return;
+  }
+  std::filesystem::path filepath{path};
+  filepath /= filename;
 
-  void SetAlarm(const alarm_t &alarm);
+  std::ofstream file(filepath);
+  file << json;
+  file.flush();
+}
 
-  alarm_t GetAlarm() const { return alarm_; }
+nlohmann::json IModule::LoadState(const std::string &path, const std::string &filename) {
+  std::filesystem::path filepath{path};
+  filepath /= filename;
 
-  void Stop();
+  std::ifstream file(filepath);
 
-private:
-  static constexpr const char *kConfigFile = "alarm.json";
-  void SaveState() override;
-  void OnTimeout(const asio::error_code &error);
-
-  const std::string config_path_;
-  asio::steady_timer timer_;
-  Power &power_;
-  Animation &animation_;
-
-  alarm_t alarm_;
-
-  std::atomic_bool is_alive_{true};
-};
-
-#endif // SRC_ALARM_HPP
+  nlohmann::json cfg;
+  file >> cfg;
+  return cfg;
+}

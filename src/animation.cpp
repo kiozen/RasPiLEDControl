@@ -17,182 +17,143 @@
 **********************************************************************************************/
 #include "animation.hpp"
 
-#include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
-#include <nlohmann/json.hpp>
 #include <openssl/md5.h>
 
-#include "controller.hpp"
+#include "power.hpp"
 
+Animation::Animation(asio::io_context &io, Power &power)
+    : Log("animation"), timer_(io), power_(power) {
 
-constexpr const char* kAnimationPath = "/home/pi";
+  power_.SigPowerStatusChanged.connect(&Animation::OnPowerStatusChanged, this);
 
-Animation::Animation(asio::io_context& io, Controller& parent)
-    : Power(module_e::animation, parent)
-    , Log("animation")
-    , controller_(parent)
-    , timer_(io)
-{
-    for(const auto& p : std::filesystem::directory_iterator(kAnimationPath))
-    {
-        const std::filesystem::path& path = p.path();
+  for (const auto &p : std::filesystem::directory_iterator(kAnimationPath)) {
+    const std::filesystem::path &path = p.path();
 
-        if(path.extension() != ".json")
-        {
-            continue;
-        }
-
-        try
-        {
-            std::ifstream file(path);
-            nlohmann::json animation;
-            file >> animation;
-
-            const std::string& name = animation["name"];
-            const std::string& description = animation["description"];
-            const std::string& content = name + description;
-
-            mode_e mode = mode_e::single;
-            const std::string& m = animation.value("mode", "single");
-            if(m == "single")
-            {
-                mode = mode_e::single;
-            }
-            else if(m == "cyclic")
-            {
-                mode = mode_e::cyclic;
-            }
-
-
-            unsigned char buffer[MD5_DIGEST_LENGTH];
-            MD5((unsigned char*) content.c_str(), content.size(), buffer);
-
-            std::string hash;
-            for (std::size_t i = 0; i < MD5_DIGEST_LENGTH; ++i)
-            {
-                hash += "0123456789ABCDEF"[buffer[i] / 16];
-                hash += "0123456789ABCDEF"[buffer[i] % 16];
-            }
-
-            animations_[hash] = {mode, name, description, path};
-
-            D(fmt::format("Found animation '{} {}'.", animation["name"], hash));
-        }
-        catch(const nlohmann::json::exception& e)
-        {
-            E(fmt::format("Parsing animation {} failed: {}", path.c_str(), e.what()));
-        }
+    if (path.extension() != ".json") {
+      continue;
     }
+
+    try {
+      std::ifstream file(path);
+      nlohmann::json animation;
+      file >> animation;
+
+      const std::string &name = animation["name"];
+      const std::string &description = animation["description"];
+      const std::string &content = name + description;
+
+      mode_e mode = mode_e::single;
+      const std::string &m = animation.value("mode", "single");
+      if (m == "single") {
+        mode = mode_e::single;
+      } else if (m == "cyclic") {
+        mode = mode_e::cyclic;
+      }
+
+      unsigned char buffer[MD5_DIGEST_LENGTH];
+      MD5((unsigned char *)content.c_str(), content.size(), buffer);
+
+      std::string hash;
+      for (std::size_t i = 0; i < MD5_DIGEST_LENGTH; ++i) {
+        hash += "0123456789ABCDEF"[buffer[i] / 16];
+        hash += "0123456789ABCDEF"[buffer[i] % 16];
+      }
+
+      animations_[hash] = {mode, name, description, path};
+
+      D(fmt::format("Found animation '{} {} {}'.", animation["name"], hash,
+                    animation.value("mode", "single")));
+    } catch (const nlohmann::json::exception &e) {
+      E(fmt::format("Parsing animation {} failed: {}", path.c_str(), e.what()));
+    }
+  }
 }
 
-Animation::~Animation()
-{
+Animation::~Animation() {}
+
+void Animation::OnPowerStatusChanged() {
+  I("OnPowerStatusChanged");
+  bool active = power_.GetChannelState(Power::kAnimation);
+  if (active_ != active) {
+    Play(active);
+  }
 }
 
-bool Animation::SwitchOn()
-{
-    I("Power on");
-    if(animation_.empty())
-    {
-        D("animation is empty");
-        return false;
+void Animation::Play(bool on) {
+  if (on) {
+    if (animation_.empty()) {
+      E("animation is empty");
+      return;
     }
-
-    if(controller_.Clear() != WS2811_SUCCESS)
-    {
-        D("clear controller failed");
-        return false;
-    }
-
+    active_ = true;
     index_ = 0;
-    timer_.expires_at( std::chrono::steady_clock::now() + std::chrono::milliseconds(100));
-    timer_.async_wait([this](const asio::error_code& error){
-        OnAnimate(error);
-    });
+    timer_.expires_at(std::chrono::steady_clock::now() + std::chrono::milliseconds(100));
+    timer_.async_wait([this](const asio::error_code &error) { OnAnimate(error); });
 
-    return true;
+  } else {
+    timer_.cancel();
+  }
 }
 
-void Animation::SwitchOff()
-{
-    if(GetPower())
-    {
-        I("Power off");
-        timer_.cancel();
-    }
+nlohmann::json Animation::GetAnimationInfo() const {
+  std::vector<nlohmann::json> infos;
+
+  for (const auto &animation : animations_) {
+    auto [hash, info] = animation;
+    nlohmann::json json;
+    json["name"] = info.name;
+    json["description"] = info.desc;
+    json["hash"] = hash;
+
+    infos.push_back(json);
+  }
+
+  return nlohmann::json(infos);
 }
 
-
-nlohmann::json Animation::GetAnimationInfo() const
-{
-    std::vector<nlohmann::json> infos;
-
-    for( const auto& animation : animations_)
-    {
-        auto [hash, info] = animation;
-        nlohmann::json json;
-        json["name"] = info.name;
-        json["description"] = info.desc;
-        json["hash"] = hash;
-
-        infos.push_back(json);
-    }
-
-    return nlohmann::json(infos);
+void Animation::SetAnimation(const std::string &hash) {
+  if (animations_.count(hash) == 0) {
+    hash_.clear();
+    animation_.clear();
+    index_ = -1;
+    return;
+  }
+  if (hash_ != hash) {
+    hash_ = hash;
+    mode_ = animations_[hash].mode;
+    LoadAnimation(animations_[hash].path.c_str());
+  }
 }
 
-void Animation::SetAnimation(const std::string& hash)
-{
-    if(animations_.count(hash) == 0)
-    {
-        hash_.clear();
-        animation_.clear();
-        index_ = -1;
-        return;
-    }
-    if(hash_ != hash)
-    {
-        hash_ = hash;
-        mode_ = animations_[hash].mode;
-        LoadAnimation(animations_[hash].path.c_str());
-    }
+void Animation::LoadAnimation(const std::string &filename) {
+  I(fmt::format("Load animation {}", filename));
+  std::ifstream ifs(filename);
+  const nlohmann::json &json_ = nlohmann::json::parse(ifs);
+  animation_ = json_["data"].get<animation_t>();
+  index_ = 0;
 }
 
-void Animation::LoadAnimation(const std::string& filename)
-{
-    I(fmt::format("Load animation {}", filename));
-    std::ifstream ifs(filename);
-    const auto& json_ = nlohmann::json::parse(ifs);
-    animation_ = json_["data"].get<animation_t>();
-    index_ = 0;
-}
+void Animation::OnAnimate(const asio::error_code &error) {
+  if (error) {
+    E(fmt::format("Cyclic loop failed: {}", error.message()));
+    active_ = false;
+    power_.SetChannelState(Power::kAnimation, false);
+    return;
+  }
 
-void Animation::OnAnimate(const asio::error_code& error)
-{
-    if(error)
-    {
-        E(fmt::format("Cyclic loop failed: {}", error.message()));
-        controller_.SetPowerAnimation(false);
-        return;
+  if (index_ == animation_.size()) {
+    if (mode_ == mode_e::cyclic) {
+      index_ = 0;
+    } else {
+      active_ = false;
+      power_.SetChannelState(Power::kAnimation, false);
+      return;
     }
-
-    if (index_ == animation_.size())
-    {
-        if(mode_ == mode_e::cyclic)
-        {
-            index_ = 0;
-        }
-        else
-        {
-            controller_.SetPowerAnimation(false);
-            return;
-        }
-    }
-    const auto& [time, matrix] = animation_[index_++];
-    controller_.Render(matrix);
-    timer_.expires_at( timer_.expiry() + std::chrono::milliseconds(time));
-    timer_.async_wait([this](const asio::error_code& error){
-        OnAnimate(error);
-    });
+  }
+  const auto &[time, frame] = animation_[index_++];
+  power_.SetChannelFrame(Power::kAnimation, frame);
+  timer_.expires_at(timer_.expiry() + std::chrono::milliseconds(time));
+  timer_.async_wait([this](const asio::error_code &error) { OnAnimate(error); });
 }
